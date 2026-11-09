@@ -7,25 +7,36 @@ using Peak;
 using Photon.Pun;
 using UnityEngine;
 
-namespace PeakRedFlareLauncher
+namespace DynamiteLauncher
 {
-    [BepInPlugin("capitan.peak.redflarelauncher", "Red Flare Launcher", "0.1.0")]
+    [BepInPlugin("capitan.peak.dynamitelauncher", "Dynamite Launcher", "1.0.0")]
     public class Plugin : BaseUnityPlugin
     {
         public static Plugin Instance { get; private set; }
+
+        private static string _logPath;
+
+        // Written next to BepInEx's own log, flushed on every line, truncated on each game start.
+        public static void Log(string message)
+        {
+            string role = PhotonNetwork.InRoom ? (PhotonNetwork.IsMasterClient ? "host" : "client") + " #" + PhotonNetwork.LocalPlayer.ActorNumber : "offline";
+            string line = "[" + role + "] " + message;
+            Instance.Logger.LogInfo(line);
+            File.AppendAllText(_logPath, System.DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + System.Environment.NewLine);
+        }
+
         public static Texture2D Camo { get; private set; }
 
         public const string SilverPrefabName = "DynamiteLauncher";
         public const string GoldPrefabName = "DynamiteLauncherGold";
         private const string SourcePrefabName = "AntiZooka";
+        private const float ReloadDelay = 0.3f;
 
         // Variant marker stored in item instance data: the item itself stays a stock Anti-Zooka on the network.
         public const DataEntryKey VariantKey = (DataEntryKey)200;
         public const int SilverVariant = 1;
         public const int GoldVariant = 2;
 
-        public static ConfigEntry<UnityEngine.InputSystem.Key> GiveSilverKey { get; private set; }
-        public static ConfigEntry<UnityEngine.InputSystem.Key> GiveGoldKey { get; private set; }
         public static ConfigEntry<int> SilverAmmo { get; private set; }
         public static ConfigEntry<bool> GoldInfiniteAmmo { get; private set; }
         public static ConfigEntry<float> FlareSpeed { get; private set; }
@@ -38,6 +49,11 @@ namespace PeakRedFlareLauncher
         public static ConfigEntry<bool> CamoEnabled { get; private set; }
         public static ConfigEntry<bool> SilverTrim { get; private set; }
 
+        private FileSystemWatcher _configWatcher;
+        private volatile bool _changed; // Set from the watcher thread; Unity APIs are only touched in Update.
+        private float _reloadAt;
+        private bool _registered;
+
         public static Texture2D SilverAtlas { get; private set; }
         public static Texture2D SilverIcon { get; private set; }
         public static Texture2D GoldIcon { get; private set; }
@@ -48,8 +64,9 @@ namespace PeakRedFlareLauncher
         private void Awake()
         {
             Instance = this;
-            GiveSilverKey = Config.Bind("Input", "GiveSilverKey", UnityEngine.InputSystem.Key.F10, "Key that gives the silver Dynamite Launcher (needs to be in a room).");
-            GiveGoldKey = Config.Bind("Input", "GiveGoldKey", UnityEngine.InputSystem.Key.F11, "Key that gives the gold Dynamite Launcher.");
+            _logPath = Path.Combine(Paths.BepInExRootPath, "DynamiteLauncher.log");
+            File.WriteAllText(_logPath, "");
+            Log("Dynamite Launcher v" + Info.Metadata.Version + " loading");
             SilverAmmo = Config.Bind("Ammo", "SilverAmmo", 3, new ConfigDescription("Shots in the silver launcher. Applies to newly spawned launchers; the host's value matters for synced items.", new AcceptableValueRange<int>(1, 999)));
             GoldInfiniteAmmo = Config.Bind("Ammo", "GoldInfiniteAmmo", true, "If false, the gold launcher spends ammo like the silver one.");
             FlareSpeed = Config.Bind("Flare", "Speed", 14f, new ConfigDescription("Flare flight speed, m/s.", new AcceptableValueRange<float>(1f, 200f)));
@@ -69,7 +86,27 @@ namespace PeakRedFlareLauncher
             SilverAtlas.LoadImage(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(Info.Location), "silver_atlas.png")));
             SilverIcon = LoadTexture("icon_silver.png");
             GoldIcon = LoadTexture("icon_gold.png");
-            new Harmony("capitan.peak.redflarelauncher").PatchAll();
+            CamoEnabled.SettingChanged += (sender, args) => CamoPatch.RefreshAll();
+            SilverTrim.SettingChanged += (sender, args) => CamoPatch.RefreshAll();
+            StartConfigWatcher();
+            new Harmony("capitan.peak.dynamitelauncher").PatchAll();
+        }
+
+        // Edits to the .cfg file are picked up while the game runs; all values are read live, so no restart is needed.
+        private void StartConfigWatcher()
+        {
+            _configWatcher = new FileSystemWatcher(Path.GetDirectoryName(Config.ConfigFilePath), Path.GetFileName(Config.ConfigFilePath))
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
+                EnableRaisingEvents = true
+            };
+            _configWatcher.Changed += (sender, args) => _changed = true;
+            _configWatcher.Created += (sender, args) => _changed = true;
+        }
+
+        private void OnDestroy()
+        {
+            _configWatcher?.Dispose();
         }
 
         private Texture2D LoadTexture(string fileName)
@@ -81,25 +118,22 @@ namespace PeakRedFlareLauncher
 
         private void Update()
         {
-            if (SilverPrefab == null)
+            if (_changed)
+            {
+                _changed = false;
+                _reloadAt = Time.realtimeSinceStartup + ReloadDelay;
+            }
+
+            if (_reloadAt > 0f && Time.realtimeSinceStartup >= _reloadAt)
+            {
+                _reloadAt = 0f;
+                Config.Reload();
+                Log("Config reloaded from file");
+            }
+
+            if (!_registered)
             {
                 TryRegisterItems();
-                return;
-            }
-
-            UnityEngine.InputSystem.Keyboard keyboard = UnityEngine.InputSystem.Keyboard.current;
-            if (keyboard == null)
-            {
-                return;
-            }
-
-            if (keyboard[GiveSilverKey.Value].wasPressedThisFrame)
-            {
-                GiveLauncher(SilverVariant);
-            }
-            else if (keyboard[GiveGoldKey.Value].wasPressedThisFrame)
-            {
-                GiveLauncher(GoldVariant);
             }
         }
 
@@ -113,6 +147,7 @@ namespace PeakRedFlareLauncher
             Character character = Character.localCharacter;
             if (character == null || !PhotonNetwork.InRoom)
             {
+                Log("GiveLauncher(" + variant + ") skipped: character=" + (character != null) + ", inRoom=" + PhotonNetwork.InRoom);
                 return;
             }
 
@@ -125,6 +160,7 @@ namespace PeakRedFlareLauncher
             item.GetData<FloatItemData>(DataEntryKey.UseRemainingPercentage).Value = 1f;
             item.GetComponent<PhotonView>().RPC("SetItemInstanceDataRPC", RpcTarget.All, item.data);
             item.RequestPickup(character.GetComponent<PhotonView>());
+            Log("Spawned launcher variant " + variant + ", viewID " + item.photonView.ViewID + ", ammo " + uses.Value);
         }
 
         // Clones the stock Anti-Zooka into two separate items: own prefab name, itemID and localized text.
@@ -148,8 +184,8 @@ namespace PeakRedFlareLauncher
 
             if (source == null)
             {
-                Logger.LogError("Source item '" + SourcePrefabName + "' not found in ItemDatabase");
-                enabled = false;
+                Log("ERROR: source item '" + SourcePrefabName + "' not found in ItemDatabase");
+                _registered = true;
                 return;
             }
 
@@ -165,7 +201,8 @@ namespace PeakRedFlareLauncher
 
             GoldPrefab = RegisterVariant(database, source, holder, GoldPrefabName, ++id, "DYNAMITE LAUNCHER GOLD", LauncherText.GoldNames, LauncherText.GoldDescriptions, true);
             SilverPrefab = RegisterVariant(database, source, holder, SilverPrefabName, ++id, "DYNAMITE LAUNCHER", LauncherText.SilverNames, LauncherText.SilverDescriptions, false);
-            Logger.LogInfo("Registered dynamite launchers, last ID " + id);
+            Log("Registered dynamite launchers, last ID " + id);
+            _registered = true;
         }
 
         private GameObject RegisterVariant(ItemDatabase database, Item source, GameObject holder, string prefabName, ushort id, string displayName, string[] names, string[] descriptions, bool gold)
@@ -188,6 +225,7 @@ namespace PeakRedFlareLauncher
 
         public IEnumerator ExplodeDynamite(Vector3 position)
         {
+            Log("Dynamite explosion at " + position);
             GameObject dynamite = PhotonNetwork.Instantiate("0_Items/Dynamite", position, Quaternion.identity, 0);
             dynamite.GetComponent<PhotonView>().RPC("RPC_Explode", Photon.Pun.RpcTarget.All);
             yield return new WaitForSeconds(Plugin.DynamiteDestroyDelay.Value);

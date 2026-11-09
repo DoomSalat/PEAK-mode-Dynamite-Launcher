@@ -1,6 +1,6 @@
-# PeakRedFlareLauncher — Feature Index
+# Dynamite Launcher — Feature Index
 
-> Два отдельных предмета (клоны AntiZooka): Dynamite Launcher (серебро, 3 заряда, F10) и Dynamite Launcher Gold (золото, бесконечные заряды, F11): красный камуфляж (локально), выстрел — медленный горящий флаер, при столкновении — мгновенный динамит.
+> Два отдельных предмета (клоны AntiZooka): Dynamite Launcher (серебро, 3 заряда) и Dynamite Launcher Gold (золото, бесконечные заряды): красный камуфляж (локально), выстрел — медленный горящий флаер, при столкновении — мгновенный динамит.
 
 ## Classes (Plugin.cs)
 | Class | Role |
@@ -26,10 +26,10 @@ RunAction -> PhotonNetwork.Instantiate("0_Items/Flare") -> FlareProjectile -> hi
 | Локализация | `NAME_`/`DESC_` ключи в `LocalizedText.mainTable` на все 15 языков (заполнено в Plugin.cs) |
 
 ## Shortcuts / unverified
-- Выдача предметов — F10 (серебро) и F11 (золото) и Premium. Не проверено в игре. Иконка инвентаря модифицированная только в каталоге Premium; в слотах инвентаря у предмета ванильная иконка антизуки.
+- Выдача только через мод-спаунер (Premium). Не проверено в игре. Иконка инвентаря модифицированная только в каталоге Premium; в слотах инвентаря у предмета ванильная иконка антизуки.
 
 ## Config
-`BepInEx/config/capitan.peak.redflarelauncher.cfg` (создаётся при первом запуске): Input (клавиши выдачи), Ammo (SilverAmmo, GoldInfiniteAmmo), Flare (Speed, LifetimeSeconds, CollisionRadius, SpawnOffset, ColorHex), Explosion (OffsetFromSurface, DynamiteDestroyDelaySeconds), Visual (Camo, SilverTrim).
+`BepInEx/config/capitan.peak.dynamitelauncher.cfg` (создаётся при первом запуске): Ammo (SilverAmmo, GoldInfiniteAmmo), Flare (Speed, LifetimeSeconds, CollisionRadius, SpawnOffset, ColorHex), Explosion (OffsetFromSurface, DynamiteDestroyDelaySeconds), Visual (Camo, SilverTrim).
 
 ## Inventory icons
 `assets/gen_icons.py` перекрашивает оригинальную иконку AntiZooka (камуфляжный ствол; рама серебро/золото) -> `icon_silver.png`, `icon_gold.png`; назначаются в `item.UIData.icon` при регистрации. Генератор читает исходную иконку из scratchpad (путь в скрипте).
@@ -40,10 +40,13 @@ RunAction -> PhotonNetwork.Instantiate("0_Items/Flare") -> FlareProjectile -> hi
 ## Files
 | File | Content |
 |---|---|
-| Plugin.cs | Config, asset loading, catalog registration, `VariantOf`, `GiveLauncher`, `ExplodeDynamite` |
+| Plugin.cs | Config, asset loading, catalog registration, `VariantOf`, `GiveLauncher` (вызывается из SpawnInHandPatch), `ExplodeDynamite` |
 | LauncherText.cs | Names/descriptions in 15 languages |
 | ShootPatches.cs | ShootPatch, RangePatch, InfiniteAmmoPatch |
 | VisualPatches.cs | CamoPatch, VariantDataPatch, ItemNamePatch, InventoryIconPatch, BackpackIconPatch |
 | SpawnPatches.cs | SpawnInHandPatch, ResourcesLoadPatch (Premium support) |
 | FlareProjectile.cs | Flare movement and impact |
 | thunderstore/ | manifest.json + icon.png; README.md in the root goes into the package |
+
+## Live config
+`FileSystemWatcher` на .cfg ставит флаг, `Update` через 0.3 с вызывает `Config.Reload()`. Все значения читаются через `.Value` в момент использования; `SettingChanged` для Camo/SilverTrim вызывает `CamoPatch.RefreshAll()` (материалы пересобираются из оригиналов, хранятся в `CamoMarker`). Ammo — только для новых лаунчеров.

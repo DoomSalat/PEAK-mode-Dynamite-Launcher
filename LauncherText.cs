@@ -1,5 +1,5 @@
 
-namespace PeakRedFlareLauncher
+namespace DynamiteLauncher
 {
     // Order matches LocalizedText.Language.
     public static class LauncherText

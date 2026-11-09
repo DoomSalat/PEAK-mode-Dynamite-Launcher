@@ -2,7 +2,7 @@ using Peak;
 using HarmonyLib;
 using UnityEngine;
 
-namespace PeakRedFlareLauncher
+namespace DynamiteLauncher
 {
     // Local-only visual: red camo on the gun body. Other players keep seeing the stock gun.
     [HarmonyPatch(typeof(Action_Antizooka), "OnEnable")]
@@ -48,7 +48,6 @@ namespace PeakRedFlareLauncher
                 return;
             }
 
-            item.gameObject.AddComponent<CamoMarker>();
             foreach (MeshRenderer renderer in item.GetComponentsInChildren<MeshRenderer>(true))
             {
                 if (renderer.name != BodyName)
@@ -56,22 +55,56 @@ namespace PeakRedFlareLauncher
                     continue;
                 }
 
-                Material[] materials = renderer.materials;
-                if (Plugin.CamoEnabled.Value)
-                {
-                    Material barrel = new Material(materials[0]);
-                    ApplyCamo(barrel);
-                    materials[1] = barrel;
-                }
+                CamoMarker marker = item.gameObject.AddComponent<CamoMarker>();
+                marker.Variant = variant;
+                marker.Renderer = renderer;
+                marker.Original = renderer.materials;
+                Refresh(marker);
+                Plugin.Log("Visuals applied: variant " + variant + " on " + item.name + ", viewID " + item.photonView.ViewID + ", materials " + marker.Original.Length);
+                return;
+            }
+        }
 
-                if (variant == Plugin.SilverVariant && Plugin.SilverTrim.Value)
+        // Rebuilds the materials from the originals, so config changes apply to launchers that already exist.
+        public static void Refresh(CamoMarker marker)
+        {
+            if (marker.Applied != null)
+            {
+                foreach (Material material in marker.Applied)
                 {
-                    materials[0].SetTexture("_MainTex", Plugin.SilverAtlas);
-                    materials[0].SetTexture("_BaseMap", Plugin.SilverAtlas);
-                    materials[0].SetColor("_BaseColor", SilverColor);
+                    Object.Destroy(material);
                 }
+            }
 
-                renderer.materials = materials;
+            Material[] materials = new Material[marker.Original.Length];
+            for (int i = 0; i < materials.Length; i++)
+            {
+                materials[i] = new Material(marker.Original[i]);
+            }
+
+            if (Plugin.CamoEnabled.Value)
+            {
+                // The barrel starts from a copy of the frame material: the stock barrel material carries the space shader.
+                materials[1] = new Material(marker.Original[0]);
+                ApplyCamo(materials[1]);
+            }
+
+            if (marker.Variant == Plugin.SilverVariant && Plugin.SilverTrim.Value)
+            {
+                materials[0].SetTexture("_MainTex", Plugin.SilverAtlas);
+                materials[0].SetTexture("_BaseMap", Plugin.SilverAtlas);
+                materials[0].SetColor("_BaseColor", SilverColor);
+            }
+
+            marker.Applied = materials;
+            marker.Renderer.materials = materials;
+        }
+
+        public static void RefreshAll()
+        {
+            foreach (CamoMarker marker in CamoMarker.All)
+            {
+                Refresh(marker);
             }
         }
     }
@@ -83,6 +116,7 @@ namespace PeakRedFlareLauncher
         {
             if (__instance.GetComponent<Action_Antizooka>() != null)
             {
+                Plugin.Log("Instance data received for " + __instance.name + ", variant " + Plugin.VariantOf(__instance));
                 CamoPatch.Apply(__instance);
             }
         }
@@ -151,5 +185,21 @@ namespace PeakRedFlareLauncher
 
     public class CamoMarker : MonoBehaviour
     {
+        public static readonly System.Collections.Generic.List<CamoMarker> All = new System.Collections.Generic.List<CamoMarker>();
+
+        public int Variant;
+        public MeshRenderer Renderer;
+        public Material[] Original;
+        public Material[] Applied;
+
+        private void OnEnable()
+        {
+            All.Add(this);
+        }
+
+        private void OnDisable()
+        {
+            All.Remove(this);
+        }
     }
 }

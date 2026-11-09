@@ -3,7 +3,7 @@ using HarmonyLib;
 using Photon.Pun;
 using UnityEngine;
 
-namespace PeakRedFlareLauncher
+namespace DynamiteLauncher
 {
     // Replaces the anti-gravity sphere spawn with a slow lit flare. Ammo is spent by the item's own Action_ReduceUses.
     [HarmonyPatch(typeof(Action_RaycastSpawnSomething), nameof(Action_RaycastSpawnSomething.RunAction))]
@@ -20,6 +20,7 @@ namespace PeakRedFlareLauncher
             Vector3 position = __instance.rayOrigin.position + direction * Plugin.FlareSpawnOffset.Value;
             GameObject flare = PhotonNetwork.Instantiate("0_Items/Flare", position, FlareProjectile.RotationFor(direction), 0);
             flare.AddComponent<FlareProjectile>().Direction = direction;
+            Plugin.Log("Shot variant " + Plugin.VariantOf(__instance.item) + ": flare viewID " + flare.GetComponent<PhotonView>().ViewID + ", dir " + direction);
 
             return false;
         }
@@ -44,7 +45,13 @@ namespace PeakRedFlareLauncher
     {
         private static bool Prefix(Action_ReduceUses __instance)
         {
-            return !(Plugin.GoldInfiniteAmmo.Value && Plugin.VariantOf(__instance.item) == Plugin.GoldVariant);
+            bool infinite = Plugin.GoldInfiniteAmmo.Value && Plugin.VariantOf(__instance.item) == Plugin.GoldVariant;
+            if (infinite)
+            {
+                Plugin.Log("Gold launcher: ammo not spent");
+            }
+
+            return !infinite;
         }
     }
 }

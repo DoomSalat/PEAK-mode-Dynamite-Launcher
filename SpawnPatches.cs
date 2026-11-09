@@ -1,7 +1,7 @@
 using HarmonyLib;
 using UnityEngine;
 
-namespace PeakRedFlareLauncher
+namespace DynamiteLauncher
 {
     // ItemSpawnerPremium spawns by name through this method: hand out a stock Anti-Zooka with our marker instead.
     [HarmonyPatch(typeof(CharacterItems), "SpawnItemInHand")]
@@ -9,6 +9,7 @@ namespace PeakRedFlareLauncher
     {
         private static bool Prefix(string objName)
         {
+            Plugin.Log("SpawnItemInHand(" + objName + ")");
             if (objName == Plugin.SilverPrefabName)
             {
                 Plugin.GiveLauncher(Plugin.SilverVariant);

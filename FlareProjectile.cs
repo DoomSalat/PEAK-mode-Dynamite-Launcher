@@ -1,7 +1,7 @@
 using Photon.Pun;
 using UnityEngine;
 
-namespace PeakRedFlareLauncher
+namespace DynamiteLauncher
 {
     public class FlareProjectile : MonoBehaviour
     {
@@ -78,6 +78,7 @@ namespace PeakRedFlareLauncher
 
         private void Impact(Vector3 point)
         {
+            Plugin.Log("Flare impact at " + point + " after " + _age.ToString("F2") + "s");
             Plugin.Instance.StartCoroutine(Plugin.Instance.ExplodeDynamite(point));
             Finish();
         }
@@ -85,6 +86,11 @@ namespace PeakRedFlareLauncher
         private void Finish()
         {
             _finished = true;
+            if (_age >= Plugin.FlareLifetime.Value)
+            {
+                Plugin.Log("Flare expired without impact");
+            }
+
             PhotonNetwork.Destroy(gameObject);
         }
     }

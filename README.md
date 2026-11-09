@@ -13,13 +13,6 @@ A new item for PEAK: a camo **Dynamite Launcher** built on the Anti-Zooka. It fi
 
 The mod does not add the launcher to the world loot. **You need any other mod that can spawn items from the game's item list** (for example ItemSpawnerPremium). Both variants appear in that list as "Dynamite Launcher" and "Golden Dynamite Launcher".
 
-Without a spawner mod you can use the built-in hotkeys while in a room:
-
-- `F10` - silver launcher
-- `F11` - gold launcher
-
-The keys are configurable.
-
 ## Multiplayer
 
 - Players **without** the mod see and use an ordinary Anti-Zooka, even if they pick up your launcher and shoot it.
@@ -28,9 +21,8 @@ The keys are configurable.
 
 ## Configuration
 
-`BepInEx/config/capitan.peak.redflarelauncher.cfg` (created on first launch):
+`BepInEx/config/capitan.peak.dynamitelauncher.cfg` (created on first launch). Changes to the file are picked up while the game is running, no restart needed (only the ammo count applies to newly spawned launchers):
 
-- **Input** - hotkeys for the silver and gold launcher.
 - **Ammo** - silver ammo count, whether the gold launcher has infinite ammo.
 - **Flare** - speed, lifetime, collision radius, spawn offset, light color (hex).
 - **Explosion** - offset from the hit surface, dynamite removal delay.

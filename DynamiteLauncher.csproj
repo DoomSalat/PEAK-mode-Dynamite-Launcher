@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-    <AssemblyName>PeakRedFlareLauncher</AssemblyName>
-    <RootNamespace>PeakRedFlareLauncher</RootNamespace>
+    <AssemblyName>DynamiteLauncher</AssemblyName>
+    <RootNamespace>DynamiteLauncher</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <RestoreAdditionalProjectSources>
@@ -75,7 +75,7 @@
   </ItemGroup>
 
   <Target Name="CopyToProfile" AfterTargets="Build" Condition="Exists('$(ProfilePlugins)')">
-    <Copy SourceFiles="$(TargetPath);$(ProjectDir)assets\camo_red.png;$(ProjectDir)assets\silver_atlas.png;$(ProjectDir)assets\icon_silver.png;$(ProjectDir)assets\icon_gold.png" DestinationFolder="$(ProfilePlugins)\PeakRedFlareLauncher" />
+    <Copy SourceFiles="$(TargetPath);$(ProjectDir)assets\camo_red.png;$(ProjectDir)assets\silver_atlas.png;$(ProjectDir)assets\icon_silver.png;$(ProjectDir)assets\icon_gold.png" DestinationFolder="$(ProfilePlugins)\DynamiteLauncher" />
   </Target>
 
 </Project>
