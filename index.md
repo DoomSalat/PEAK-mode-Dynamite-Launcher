@@ -1,11 +1,11 @@
 # PeakRedFlareLauncher — Feature Index
 
-> Anti-Zooka (антигравитационная базука): красный камуфляж (локально), выстрел — медленный горящий флаер, при столкновении — мгновенный динамит.
+> Отдельный предмет Dynamite Launcher (клон AntiZooka, виден в ItemSpawnerPremium): красный камуфляж (локально), выстрел — медленный горящий флаер, при столкновении — мгновенный динамит.
 
 ## Classes (Plugin.cs)
 | Class | Role |
 |---|---|
-| Plugin | BepInEx entry, загрузка `camo_red.png`, корутина `ExplodeDynamite` |
+| Plugin | BepInEx entry, регистрация клона в ItemDatabase, загрузка `camo_red.png`, корутина `ExplodeDynamite` |
 | ShootPatch | Harmony prefix `Action_RaycastSpawnSomething.RunAction` для предмета с `Action_Antizooka`: спавнит флаер вместо AntiSphere |
 | CamoPatch | Harmony postfix `Action_Antizooka.OnEnable`: подменяет текстуры меша `Anti-Zooka` (только локально) |
 | FlareProjectile | Движение флаера (14 м/с, без гравитации), SphereCast, при ударе — динамит |
@@ -18,3 +18,6 @@ RunAction -> PhotonNetwork.Instantiate("0_Items/Flare") -> FlareProjectile -> hi
 
 ## Build
 `dotnet build -c Release` -> копирует dll + camo_red.png в профиль Default (Thunderstore Mod Manager).
+
+| PoolPatch | Отдаёт клон-префаб через Photon DefaultPool |
+| DynamiteLauncherMarker | Метка клона; патчи работают только с ней |

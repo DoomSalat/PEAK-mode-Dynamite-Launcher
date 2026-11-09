@@ -14,6 +14,12 @@ namespace PeakRedFlareLauncher
         public static Plugin Instance { get; private set; }
         public static Texture2D Camo { get; private set; }
 
+        public const string PrefabName = "DynamiteLauncher";
+        public const string DisplayName = "DYNAMITE LAUNCHER";
+        private const string SourcePrefabName = "AntiZooka";
+
+        public static GameObject Prefab { get; private set; }
+
         private void Awake()
         {
             Instance = this;
@@ -21,6 +27,73 @@ namespace PeakRedFlareLauncher
             Camo = new Texture2D(2, 2) { wrapMode = TextureWrapMode.Repeat };
             Camo.LoadImage(File.ReadAllBytes(path));
             new Harmony("capitan.peak.redflarelauncher").PatchAll();
+        }
+
+        private void Update()
+        {
+            if (Prefab == null)
+            {
+                TryRegisterItem();
+            }
+        }
+
+        // Clones the stock Anti-Zooka into a separate item: own prefab name, itemID and display name.
+        private void TryRegisterItem()
+        {
+            ItemDatabase database = Zorro.Core.SingletonAsset<ItemDatabase>.Instance;
+            if (database == null || database.itemLookup.Count == 0)
+            {
+                return;
+            }
+
+            Item source = null;
+            foreach (Item candidate in database.Objects)
+            {
+                if (candidate != null && candidate.gameObject.name == SourcePrefabName)
+                {
+                    source = candidate;
+                    break;
+                }
+            }
+
+            if (source == null)
+            {
+                Logger.LogError("Source item '" + SourcePrefabName + "' not found in ItemDatabase");
+                enabled = false;
+                return;
+            }
+
+            ushort id = 0;
+            foreach (ushort key in database.itemLookup.Keys)
+            {
+                id = key > id ? key : id;
+            }
+
+            id++;
+
+            GameObject holder = new GameObject("DynamiteLauncherTemplate");
+            holder.SetActive(false);
+            DontDestroyOnLoad(holder);
+            GameObject clone = Instantiate(source.gameObject, holder.transform);
+            clone.name = PrefabName;
+            clone.AddComponent<DynamiteLauncherMarker>();
+            Item item = clone.GetComponent<Item>();
+            item.itemID = id;
+            item.UIData.itemName = DisplayName;
+
+            int languages = System.Enum.GetNames(typeof(LocalizedText.Language)).Length;
+            System.Collections.Generic.List<string> names = new System.Collections.Generic.List<string>();
+            for (int i = 0; i < languages; i++)
+            {
+                names.Add(i == 0 ? "Dynamite Launcher" : "");
+            }
+
+            LocalizedText.mainTable[LocalizedText.GetNameIndex(DisplayName)] = names;
+
+            database.AddRuntimeEntry(item);
+            database.itemLookup[id] = item;
+            Prefab = clone;
+            Logger.LogInfo("Registered item '" + PrefabName + "' with ID " + id);
         }
 
         public IEnumerator ExplodeDynamite(Vector3 position)
@@ -41,7 +114,7 @@ namespace PeakRedFlareLauncher
     {
         private static bool Prefix(Action_RaycastSpawnSomething __instance)
         {
-            if (__instance.GetComponent<Action_Antizooka>() == null)
+            if (__instance.GetComponent<DynamiteLauncherMarker>() == null)
             {
                 return true;
             }
@@ -61,7 +134,7 @@ namespace PeakRedFlareLauncher
     {
         private static void Postfix(Action_RaycastSpawnSomething __instance)
         {
-            if (__instance.GetComponent<Action_Antizooka>() != null)
+            if (__instance.GetComponent<DynamiteLauncherMarker>() != null)
             {
                 __instance.item.UIData.isShootable = true;
             }
@@ -76,7 +149,7 @@ namespace PeakRedFlareLauncher
 
         private static void Postfix(Action_Antizooka __instance)
         {
-            if (__instance.GetComponent<CamoMarker>() != null)
+            if (__instance.GetComponent<DynamiteLauncherMarker>() == null || __instance.GetComponent<CamoMarker>() != null)
             {
                 return;
             }
@@ -105,6 +178,30 @@ namespace PeakRedFlareLauncher
 
     public class CamoMarker : MonoBehaviour
     {
+    }
+
+    public class DynamiteLauncherMarker : MonoBehaviour
+    {
+    }
+
+    // Serves the cloned item prefab: it is not in Resources, so the stock Photon pool cannot find it.
+    [HarmonyPatch(typeof(DefaultPool), nameof(DefaultPool.Instantiate))]
+    public static class PoolPatch
+    {
+        private static bool Prefix(string prefabId, Vector3 position, Quaternion rotation, ref GameObject __result)
+        {
+            if (prefabId != "0_Items/" + Plugin.PrefabName || Plugin.Prefab == null)
+            {
+                return true;
+            }
+
+            GameObject prefab = Plugin.Prefab;
+            bool wasActive = prefab.activeSelf;
+            prefab.SetActive(false);
+            __result = Object.Instantiate(prefab, position, rotation);
+            prefab.SetActive(wasActive);
+            return false;
+        }
     }
 
     public class FlareProjectile : MonoBehaviour

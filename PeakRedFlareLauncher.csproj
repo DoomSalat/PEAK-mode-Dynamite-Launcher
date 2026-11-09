@@ -49,6 +49,10 @@
       <HintPath>$(ManagedDirectory)\UnityEngine.ImageConversionModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Sirenix.Serialization">
+      <HintPath>$(ManagedDirectory)\Sirenix.Serialization.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Zorro.Core.Runtime">
       <HintPath>$(ManagedDirectory)\Zorro.Core.Runtime.dll</HintPath>
       <Private>false</Private>
