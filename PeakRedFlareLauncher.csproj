@@ -49,6 +49,10 @@
       <HintPath>$(ManagedDirectory)\UnityEngine.ImageConversionModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Unity.InputSystem">
+      <HintPath>$(ManagedDirectory)\Unity.InputSystem.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Sirenix.Serialization">
       <HintPath>$(ManagedDirectory)\Sirenix.Serialization.dll</HintPath>
       <Private>false</Private>
@@ -61,10 +65,13 @@
 
   <ItemGroup>
     <None Include="assets\camo_red.png" CopyToOutputDirectory="PreserveNewest" Link="camo_red.png" />
+    <None Include="assets\silver_atlas.png" CopyToOutputDirectory="PreserveNewest" Link="silver_atlas.png" />
+    <None Include="assets\icon_silver.png" CopyToOutputDirectory="PreserveNewest" Link="icon_silver.png" />
+    <None Include="assets\icon_gold.png" CopyToOutputDirectory="PreserveNewest" Link="icon_gold.png" />
   </ItemGroup>
 
   <Target Name="CopyToProfile" AfterTargets="Build" Condition="Exists('$(ProfilePlugins)')">
-    <Copy SourceFiles="$(TargetPath);$(ProjectDir)assets\camo_red.png" DestinationFolder="$(ProfilePlugins)\PeakRedFlareLauncher" />
+    <Copy SourceFiles="$(TargetPath);$(ProjectDir)assets\camo_red.png;$(ProjectDir)assets\silver_atlas.png;$(ProjectDir)assets\icon_silver.png;$(ProjectDir)assets\icon_gold.png" DestinationFolder="$(ProfilePlugins)\PeakRedFlareLauncher" />
   </Target>
 
 </Project>
