@@ -49,6 +49,10 @@
       <HintPath>$(ManagedDirectory)\UnityEngine.ImageConversionModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(ManagedDirectory)\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Unity.InputSystem">
       <HintPath>$(ManagedDirectory)\Unity.InputSystem.dll</HintPath>
       <Private>false</Private>

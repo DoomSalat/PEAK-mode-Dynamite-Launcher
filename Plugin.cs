@@ -19,6 +19,11 @@ namespace PeakRedFlareLauncher
         public const string GoldPrefabName = "DynamiteLauncherGold";
         private const string SourcePrefabName = "AntiZooka";
 
+        // Variant marker stored in item instance data: the item itself stays a stock Anti-Zooka on the network.
+        public const DataEntryKey VariantKey = (DataEntryKey)200;
+        public const int SilverVariant = 1;
+        public const int GoldVariant = 2;
+
         public static ConfigEntry<UnityEngine.InputSystem.Key> GiveSilverKey { get; private set; }
         public static ConfigEntry<UnityEngine.InputSystem.Key> GiveGoldKey { get; private set; }
         public static ConfigEntry<int> SilverAmmo { get; private set; }
@@ -39,11 +44,6 @@ namespace PeakRedFlareLauncher
         public static GameObject SilverPrefab { get; private set; }
         public static GameObject GoldPrefab { get; private set; }
 
-        // Order matches LocalizedText.Language.
-        private static readonly string[] SilverNames = { "Dynamite Launcher", "Lance-dynamite", "Lanciadinamite", "Dynamit-Werfer", "Lanzadinamita", "Lanzadinamita", "Lança-dinamite", "Динамитомёт", "Динамітомет", "炸药发射器", "炸藥發射器", "ダイナマイトランチャー", "다이너마이트 발사기", "Wyrzutnia dynamitu", "Dinamit Fırlatıcı" };
-        private static readonly string[] GoldNames = { "Golden Dynamite Launcher", "Lance-dynamite doré", "Lanciadinamite dorato", "Goldener Dynamit-Werfer", "Lanzadinamita dorado", "Lanzadinamita dorado", "Lança-dinamite dourado", "Золотой динамитомёт", "Золотий динамітомет", "黄金炸药发射器", "黃金炸藥發射器", "黄金のダイナマイトランチャー", "황금 다이너마이트 발사기", "Złota wyrzutnia dynamitu", "Altın Dinamit Fırlatıcı" };
-        private static readonly string[] SilverDescriptions = { "Fires a slow red flare that turns into exploding dynamite on impact.", "Tire une fusée rouge lente qui devient de la dynamite explosive à l'impact.", "Spara un razzo rosso lento che diventa dinamite esplosiva all'impatto.", "Feuert eine langsame rote Leuchtfackel ab, die beim Aufprall zu explodierendem Dynamit wird.", "Dispara una bengala roja lenta que se convierte en dinamita explosiva al impactar.", "Dispara una bengala roja lenta que se convierte en dinamita explosiva al impactar.", "Dispara um sinalizador vermelho lento que vira dinamite explosiva ao impacto.", "Выпускает медленную красную сигнальную ракету, которая при ударе превращается во взрывающийся динамит.", "Випускає повільну червону сигнальну ракету, яка при ударі стає динамітом, що вибухає.", "发射缓慢飞行的红色信号弹，撞击后变成爆炸的炸药。", "發射緩慢飛行的紅色信號彈，撞擊後變成爆炸的炸藥。", "ゆっくり飛ぶ赤い信号弾を発射し、着弾するとダイナマイトが爆発する。", "느리게 날아가는 붉은 신호탄을 발사하며, 충돌하면 폭발하는 다이너마이트가 됩니다.", "Wystrzeliwuje wolną czerwoną racę, która po uderzeniu zamienia się w wybuchający dynamit.", "Yavaş uçan kırmızı bir fişek atar; çarpınca patlayan dinamite dönüşür." };
-        private static readonly string[] GoldDescriptions = { "Fires a slow red flare that turns into exploding dynamite on impact. Infinite ammo.", "Tire une fusée rouge lente qui devient de la dynamite explosive à l'impact. Munitions infinies.", "Spara un razzo rosso lento che diventa dinamite esplosiva all'impatto. Munizioni infinite.", "Feuert eine langsame rote Leuchtfackel ab, die beim Aufprall zu explodierendem Dynamit wird. Unendlich Munition.", "Dispara una bengala roja lenta que se convierte en dinamita explosiva al impactar. Munición infinita.", "Dispara una bengala roja lenta que se convierte en dinamita explosiva al impactar. Munición infinita.", "Dispara um sinalizador vermelho lento que vira dinamite explosiva ao impacto. Munição infinita.", "Выпускает медленную красную сигнальную ракету, которая при ударе превращается во взрывающийся динамит. Бесконечные патроны.", "Випускає повільну червону сигнальну ракету, яка при ударі стає динамітом, що вибухає. Нескінченні патрони.", "发射缓慢飞行的红色信号弹，撞击后变成爆炸的炸药。弹药无限。", "發射緩慢飛行的紅色信號彈，撞擊後變成爆炸的炸藥。彈藥無限。", "ゆっくり飛ぶ赤い信号弾を発射し、着弾するとダイナマイトが爆発する。弾数無制限。", "느리게 날아가는 붉은 신호탄을 발사하며, 충돌하면 폭발하는 다이너마이트가 됩니다. 무한 탄약.", "Wystrzeliwuje wolną czerwoną racę, która po uderzeniu zamienia się w wybuchający dynamit. Nieskończona amunicja.", "Yavaş uçan kırmızı bir fişek atar; çarpınca patlayan dinamite dönüşür. Sınırsız mermi." };
 
         private void Awake()
         {
@@ -95,15 +95,20 @@ namespace PeakRedFlareLauncher
 
             if (keyboard[GiveSilverKey.Value].wasPressedThisFrame)
             {
-                GiveLauncher(SilverPrefabName);
+                GiveLauncher(SilverVariant);
             }
             else if (keyboard[GiveGoldKey.Value].wasPressedThisFrame)
             {
-                GiveLauncher(GoldPrefabName);
+                GiveLauncher(GoldVariant);
             }
         }
 
-        private void GiveLauncher(string prefabName)
+        public static int VariantOf(Item item)
+        {
+            return item != null && item.data != null && item.data.TryGetDataEntry<IntItemData>(VariantKey, out IntItemData value) ? value.Value : 0;
+        }
+
+        public static void GiveLauncher(int variant)
         {
             Character character = Character.localCharacter;
             if (character == null || !PhotonNetwork.InRoom)
@@ -111,8 +116,15 @@ namespace PeakRedFlareLauncher
                 return;
             }
 
-            GameObject spawned = PhotonNetwork.Instantiate("0_Items/" + prefabName, character.Center, Quaternion.identity, 0);
-            spawned.GetComponent<Item>().RequestPickup(character.GetComponent<PhotonView>());
+            GameObject spawned = PhotonNetwork.Instantiate("0_Items/" + SourcePrefabName, character.Center, Quaternion.identity, 0);
+            Item item = spawned.GetComponent<Item>();
+            item.GetData<IntItemData>(VariantKey).Value = variant;
+            OptionableIntItemData uses = item.GetData<OptionableIntItemData>(DataEntryKey.ItemUses);
+            uses.HasData = true;
+            uses.Value = SilverAmmo.Value;
+            item.GetData<FloatItemData>(DataEntryKey.UseRemainingPercentage).Value = 1f;
+            item.GetComponent<PhotonView>().RPC("SetItemInstanceDataRPC", RpcTarget.All, item.data);
+            item.RequestPickup(character.GetComponent<PhotonView>());
         }
 
         // Clones the stock Anti-Zooka into two separate items: own prefab name, itemID and localized text.
@@ -151,8 +163,8 @@ namespace PeakRedFlareLauncher
             holder.SetActive(false);
             DontDestroyOnLoad(holder);
 
-            GoldPrefab = RegisterVariant(database, source, holder, GoldPrefabName, ++id, "DYNAMITE LAUNCHER GOLD", GoldNames, GoldDescriptions, true);
-            SilverPrefab = RegisterVariant(database, source, holder, SilverPrefabName, ++id, "DYNAMITE LAUNCHER", SilverNames, SilverDescriptions, false);
+            GoldPrefab = RegisterVariant(database, source, holder, GoldPrefabName, ++id, "DYNAMITE LAUNCHER GOLD", LauncherText.GoldNames, LauncherText.GoldDescriptions, true);
+            SilverPrefab = RegisterVariant(database, source, holder, SilverPrefabName, ++id, "DYNAMITE LAUNCHER", LauncherText.SilverNames, LauncherText.SilverDescriptions, false);
             Logger.LogInfo("Registered dynamite launchers, last ID " + id);
         }
 
@@ -160,12 +172,6 @@ namespace PeakRedFlareLauncher
         {
             GameObject clone = Instantiate(source.gameObject, holder.transform);
             clone.name = prefabName;
-            clone.AddComponent<DynamiteLauncherMarker>();
-            if (gold && GoldInfiniteAmmo.Value)
-            {
-                clone.AddComponent<GoldMarker>();
-            }
-
             Item item = clone.GetComponent<Item>();
             item.totalUses = SilverAmmo.Value;
             item.itemID = id;
@@ -189,255 +195,6 @@ namespace PeakRedFlareLauncher
             {
                 PhotonNetwork.Destroy(dynamite);
             }
-        }
-    }
-
-    // Replaces the anti-gravity sphere spawn with a slow lit flare. Ammo is spent by the item's own Action_ReduceUses.
-    [HarmonyPatch(typeof(Action_RaycastSpawnSomething), nameof(Action_RaycastSpawnSomething.RunAction))]
-    public static class ShootPatch
-    {
-        private static bool Prefix(Action_RaycastSpawnSomething __instance)
-        {
-            if (__instance.GetComponent<DynamiteLauncherMarker>() == null)
-            {
-                return true;
-            }
-
-            Vector3 direction = MainCamera.instance.transform.forward;
-            Vector3 position = __instance.rayOrigin.position + direction * Plugin.FlareSpawnOffset.Value;
-            GameObject flare = PhotonNetwork.Instantiate("0_Items/Flare", position, FlareProjectile.RotationFor(direction), 0);
-            flare.AddComponent<FlareProjectile>().Direction = direction;
-
-            return false;
-        }
-    }
-
-    // Removes the stock range gate: the gun is always shootable.
-    [HarmonyPatch(typeof(Action_RaycastSpawnSomething), "FixedUpdate")]
-    public static class RangePatch
-    {
-        private static void Postfix(Action_RaycastSpawnSomething __instance)
-        {
-            if (__instance.GetComponent<DynamiteLauncherMarker>() != null)
-            {
-                __instance.item.UIData.isShootable = true;
-            }
-        }
-    }
-
-    // Local-only visual: red camo on the gun body. Other players keep seeing the stock gun.
-    [HarmonyPatch(typeof(Action_Antizooka), "OnEnable")]
-    public static class CamoPatch
-    {
-        private const string BodyName = "Anti-Zooka";
-        private static readonly Color SilverColor = new Color(0.85f, 0.87f, 0.92f, 1f);
-
-        // The barrel (submesh 1) samples only this window of the atlas UV space; the camo is stretched over exactly it.
-        private const float WindowU = 0.043f;
-        private const float WindowV = 0.503f;
-        private const float WindowWidth = 0.899f;
-        private const float WindowHeight = 0.099f;
-
-        private static void ApplyCamo(Material material)
-        {
-            Vector2 scale = new Vector2(1f / WindowWidth, 1f / WindowHeight);
-            Vector2 offset = new Vector2(-WindowU / WindowWidth, -WindowV / WindowHeight);
-            material.SetTexture("_BaseMap", Plugin.Camo);
-            material.SetTexture("_MainTex", Plugin.Camo);
-            material.SetTextureScale("_BaseMap", scale);
-            material.SetTextureOffset("_BaseMap", offset);
-            material.SetTextureScale("_MainTex", scale);
-            material.SetTextureOffset("_MainTex", offset);
-            material.SetColor("_BaseColor", Color.white);
-            material.SetColor("_Color", Color.white);
-            material.SetColor("_EmissionColor", Color.black);
-            material.SetFloat("_Metallic", 0f);
-            material.SetFloat("_Smoothness", 0.1f);
-        }
-
-        private static void Postfix(Action_Antizooka __instance)
-        {
-            if (__instance.GetComponent<DynamiteLauncherMarker>() == null || __instance.GetComponent<CamoMarker>() != null)
-            {
-                return;
-            }
-
-            __instance.gameObject.AddComponent<CamoMarker>();
-            foreach (MeshRenderer renderer in __instance.GetComponentsInChildren<MeshRenderer>(true))
-            {
-                if (renderer.name != BodyName)
-                {
-                    continue;
-                }
-
-                Material[] materials = renderer.materials;
-                if (Plugin.CamoEnabled.Value)
-                {
-                    Material barrel = new Material(materials[0]);
-                    ApplyCamo(barrel);
-                    materials[1] = barrel;
-                }
-
-                bool silver = !__instance.name.StartsWith(Plugin.GoldPrefabName);
-                if (silver && Plugin.SilverTrim.Value)
-                {
-                    materials[0].SetTexture("_MainTex", Plugin.SilverAtlas);
-                    materials[0].SetTexture("_BaseMap", Plugin.SilverAtlas);
-                    materials[0].SetColor("_BaseColor", SilverColor);
-                }
-
-                renderer.materials = materials;
-            }
-        }
-    }
-
-    public class CamoMarker : MonoBehaviour
-    {
-    }
-
-    public class DynamiteLauncherMarker : MonoBehaviour
-    {
-    }
-
-    public class GoldMarker : MonoBehaviour
-    {
-    }
-
-    // Gold variant never spends ammo.
-    [HarmonyPatch(typeof(Action_ReduceUses), nameof(Action_ReduceUses.ReduceUsesRPC))]
-    public static class InfiniteAmmoPatch
-    {
-        private static bool Prefix(Action_ReduceUses __instance)
-        {
-            return __instance.GetComponent<GoldMarker>() == null;
-        }
-    }
-
-    // Serves the cloned item prefab: it is not in Resources, so the stock Photon pool cannot find it.
-    [HarmonyPatch(typeof(DefaultPool), nameof(DefaultPool.Instantiate))]
-    public static class PoolPatch
-    {
-        private static bool Prefix(string prefabId, Vector3 position, Quaternion rotation, ref GameObject __result)
-        {
-            GameObject prefab = prefabId == "0_Items/" + Plugin.SilverPrefabName ? Plugin.SilverPrefab : prefabId == "0_Items/" + Plugin.GoldPrefabName ? Plugin.GoldPrefab : null;
-            if (prefab == null)
-            {
-                return true;
-            }
-
-            bool wasActive = prefab.activeSelf;
-            prefab.SetActive(false);
-            __result = Object.Instantiate(prefab, position, rotation);
-            prefab.SetActive(wasActive);
-            return false;
-        }
-    }
-
-    // Mods like ItemSpawnerPremium check Resources.Load("0_Items/<name>") before spawning; answer it for our cloned prefabs.
-    [HarmonyPatch(typeof(Resources), nameof(Resources.Load), new[] { typeof(string), typeof(System.Type) })]
-    public static class ResourcesLoadPatch
-    {
-        private static void Postfix(string path, ref Object __result)
-        {
-            if (__result != null)
-            {
-                return;
-            }
-
-            if (path == "0_Items/" + Plugin.SilverPrefabName)
-            {
-                __result = Plugin.SilverPrefab;
-            }
-            else if (path == "0_Items/" + Plugin.GoldPrefabName)
-            {
-                __result = Plugin.GoldPrefab;
-            }
-        }
-    }
-
-    public class FlareProjectile : MonoBehaviour
-    {
-        private static Color FlareColor
-        {
-            get
-            {
-                return ColorUtility.TryParseHtmlString(Plugin.FlareColorHex.Value, out Color color) ? color : Color.red;
-            }
-        }
-
-        public Vector3 Direction;
-
-        // The flare's flame end is its local +Y: point it backwards so the opposite end leads.
-        public static Quaternion RotationFor(Vector3 direction)
-        {
-            return Quaternion.FromToRotation(Vector3.up, -direction);
-        }
-
-        private Item _item;
-        private float _age;
-        private bool _finished;
-
-        private void Start()
-        {
-            _item = GetComponent<Item>();
-            _item.rig.useGravity = false;
-            _item.blockInteraction = true;
-
-            Flare flare = GetComponent<Flare>();
-            flare.flareColor = FlareColor;
-            _item.GetData<ColorItemData>(DataEntryKey.Color).Value = FlareColor;
-            _item.GetData<BoolItemData>(DataEntryKey.FlareActive).Value = true;
-        }
-
-        private void FixedUpdate()
-        {
-            if (_finished)
-            {
-                return;
-            }
-
-            _age += Time.fixedDeltaTime;
-            Rigidbody rig = _item.rig;
-            rig.linearVelocity = Direction * Plugin.FlareSpeed.Value;
-            rig.angularVelocity = Vector3.zero;
-            rig.rotation = RotationFor(Direction);
-
-            float distance = Plugin.FlareSpeed.Value * Time.fixedDeltaTime + 0.15f;
-            RaycastHit[] hits = Physics.SphereCastAll(rig.position, Plugin.FlareRadius.Value, Direction, distance, HelperFunctions.AllPhysical, QueryTriggerInteraction.Ignore);
-            RaycastHit? nearest = null;
-            foreach (RaycastHit hit in hits)
-            {
-                if (hit.distance <= 0f || hit.collider.transform.IsChildOf(transform))
-                {
-                    continue;
-                }
-
-                if (nearest == null || hit.distance < nearest.Value.distance)
-                {
-                    nearest = hit;
-                }
-            }
-
-            if (nearest != null)
-            {
-                Impact(nearest.Value.point + nearest.Value.normal * Plugin.ExplosionOffset.Value);
-            }
-            else if (_age >= Plugin.FlareLifetime.Value)
-            {
-                Finish();
-            }
-        }
-
-        private void Impact(Vector3 point)
-        {
-            Plugin.Instance.StartCoroutine(Plugin.Instance.ExplodeDynamite(point));
-            Finish();
-        }
-
-        private void Finish()
-        {
-            _finished = true;
-            PhotonNetwork.Destroy(gameObject);
         }
     }
 }
