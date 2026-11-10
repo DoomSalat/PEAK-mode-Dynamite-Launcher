@@ -9,36 +9,31 @@ using UnityEngine;
 
 namespace DynamiteLauncher
 {
-    [BepInPlugin("capitan.peak.dynamitelauncher", "Dynamite Launcher", "1.0.0")]
+    [BepInPlugin("capitan.peak.dynamitelauncher", "Dynamite Launcher", "1.1.0")]
     public class Plugin : BaseUnityPlugin
     {
         public static Plugin Instance { get; private set; }
-
-        private static string _logPath;
-
-        // Written next to BepInEx's own log, flushed on every line, truncated on each game start.
-        public static void Log(string message)
-        {
-            string role = PhotonNetwork.InRoom ? (PhotonNetwork.IsMasterClient ? "host" : "client") + " #" + PhotonNetwork.LocalPlayer.ActorNumber : "offline";
-            string line = "[" + role + "] " + message;
-            Instance.Logger.LogInfo(line);
-            File.AppendAllText(_logPath, System.DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + System.Environment.NewLine);
-        }
 
         public static Texture2D Camo { get; private set; }
 
         public const string SilverPrefabName = "DynamiteLauncher";
         public const string GoldPrefabName = "DynamiteLauncherGold";
-        private const string SourcePrefabName = "AntiZooka";
+        internal const string SourcePrefabName = "AntiZooka";
         private const float ReloadDelay = 0.3f;
 
         // Variant marker stored in item instance data: the item itself stays a stock Anti-Zooka on the network.
         public const DataEntryKey VariantKey = (DataEntryKey)200;
+        public const DataEntryKey CreatorKey = (DataEntryKey)201;
         public const int SilverVariant = 1;
         public const int GoldVariant = 2;
 
+        internal static ConfigEntry<bool> EnableRareChestLoot { get; private set; }
+        internal static ConfigEntry<Rarity> ChestLootRarity { get; private set; }
+        internal static ConfigEntry<bool> EnableMagicalLoot { get; private set; }
         public static ConfigEntry<int> SilverAmmo { get; private set; }
         public static ConfigEntry<bool> GoldInfiniteAmmo { get; private set; }
+        public static ConfigEntry<float> ChargeSpeedMultiplier { get; private set; }
+        public static ConfigEntry<bool> ReplaceOthersShots { get; private set; }
         public static ConfigEntry<float> FlareSpeed { get; private set; }
         public static ConfigEntry<float> FlareLifetime { get; private set; }
         public static ConfigEntry<float> FlareRadius { get; private set; }
@@ -64,11 +59,13 @@ namespace DynamiteLauncher
         private void Awake()
         {
             Instance = this;
-            _logPath = Path.Combine(Paths.BepInExRootPath, "DynamiteLauncher.log");
-            File.WriteAllText(_logPath, "");
-            Log("Dynamite Launcher v" + Info.Metadata.Version + " loading");
+            EnableRareChestLoot = Config.Bind("Loot", "EnableRareChestLoot", false, "Host only. Add both launchers to ordinary luggage using ChestLootRarity.");
+            ChestLootRarity = Config.Bind("Loot", "ChestLootRarity", Rarity.Rare, "Host only. Rarity of both launchers in ordinary luggage when EnableRareChestLoot is enabled.");
+            EnableMagicalLoot = Config.Bind("Loot", "EnableMagicalLoot", false, "Host only. Add both launchers to statue rewards and ancient luggage as Mythic loot.");
             SilverAmmo = Config.Bind("Ammo", "SilverAmmo", 3, new ConfigDescription("Shots in the silver launcher. Applies to newly spawned launchers; the host's value matters for synced items.", new AcceptableValueRange<int>(1, 999)));
             GoldInfiniteAmmo = Config.Bind("Ammo", "GoldInfiniteAmmo", true, "If false, the gold launcher spends ammo like the silver one.");
+            ChargeSpeedMultiplier = Config.Bind("Launcher", "ChargeSpeedMultiplier", 1f, new ConfigDescription("Charge speed for both launcher variants. 1 keeps the stock speed; 2 charges twice as fast.", new AcceptableValueRange<float>(0.1f, 10f)));
+            ReplaceOthersShots = Config.Bind("Launcher", "ReplaceOthersShots", false, "Launchers you created: when a player without the mod fires one, replace their anti-gravity sphere with the flare (you must be in the room).");
             FlareSpeed = Config.Bind("Flare", "Speed", 14f, new ConfigDescription("Flare flight speed, m/s.", new AcceptableValueRange<float>(1f, 200f)));
             FlareLifetime = Config.Bind("Flare", "LifetimeSeconds", 25f, new ConfigDescription("The flare is deleted after this many seconds without hitting anything.", new AcceptableValueRange<float>(1f, 600f)));
             FlareRadius = Config.Bind("Flare", "CollisionRadius", 0.12f, new ConfigDescription("Sphere-cast radius used to detect obstacles.", new AcceptableValueRange<float>(0.01f, 2f)));
@@ -78,12 +75,10 @@ namespace DynamiteLauncher
             DynamiteDestroyDelay = Config.Bind("Explosion", "DynamiteDestroyDelaySeconds", 0.2f, "Time before the exploded dynamite object is removed.");
             SilverTrim = Config.Bind("Visual", "SilverTrim", true, "Silver stars/outline/frame on the silver launcher (local only); gold launcher keeps the original gold.");
             CamoEnabled = Config.Bind("Visual", "Camo", true, "Red camo on the launcher barrel (local only).");
-            string path = Path.Combine(Path.GetDirectoryName(Info.Location), "camo_red.png");
-            Camo = new Texture2D(2, 2) { wrapMode = TextureWrapMode.Repeat };
-            Camo.LoadImage(File.ReadAllBytes(path));
+            Camo = LoadTexture("camo_red.png");
+            Camo.wrapMode = TextureWrapMode.Repeat;
             Camo.Compress(true);
-            SilverAtlas = new Texture2D(2, 2);
-            SilverAtlas.LoadImage(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(Info.Location), "silver_atlas.png")));
+            SilverAtlas = LoadTexture("silver_atlas.png");
             SilverIcon = LoadTexture("icon_silver.png");
             GoldIcon = LoadTexture("icon_gold.png");
             CamoEnabled.SettingChanged += (sender, args) => CamoPatch.RefreshAll();
@@ -109,10 +104,15 @@ namespace DynamiteLauncher
             _configWatcher?.Dispose();
         }
 
-        private Texture2D LoadTexture(string fileName)
+        private static Texture2D LoadTexture(string fileName)
         {
-            Texture2D texture = new Texture2D(2, 2);
-            texture.LoadImage(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(Info.Location), fileName)));
+            using var stream = typeof(Plugin).Assembly.GetManifestResourceStream("DynamiteLauncher." + fileName)
+                ?? throw new FileNotFoundException("Embedded texture not found.", fileName);
+            using var image = new MemoryStream();
+            stream.CopyTo(image);
+
+            var texture = new Texture2D(2, 2);
+            texture.LoadImage(image.ToArray());
             return texture;
         }
 
@@ -128,7 +128,6 @@ namespace DynamiteLauncher
             {
                 _reloadAt = 0f;
                 Config.Reload();
-                Log("Config reloaded from file");
             }
 
             if (!_registered)
@@ -147,20 +146,25 @@ namespace DynamiteLauncher
             Character character = Character.localCharacter;
             if (character == null || !PhotonNetwork.InRoom)
             {
-                Log("GiveLauncher(" + variant + ") skipped: character=" + (character != null) + ", inRoom=" + PhotonNetwork.InRoom);
                 return;
             }
 
             GameObject spawned = PhotonNetwork.Instantiate("0_Items/" + SourcePrefabName, character.Center, Quaternion.identity, 0);
             Item item = spawned.GetComponent<Item>();
+            InitializeLauncher(item, variant);
+            item.RequestPickup(character.GetComponent<PhotonView>());
+        }
+
+        internal static void InitializeLauncher(Item item, int variant)
+        {
             item.GetData<IntItemData>(VariantKey).Value = variant;
+            item.GetData<IntItemData>(CreatorKey).Value = PhotonNetwork.LocalPlayer.ActorNumber;
             OptionableIntItemData uses = item.GetData<OptionableIntItemData>(DataEntryKey.ItemUses);
             uses.HasData = true;
             uses.Value = SilverAmmo.Value;
             item.GetData<FloatItemData>(DataEntryKey.UseRemainingPercentage).Value = 1f;
             item.GetComponent<PhotonView>().RPC("SetItemInstanceDataRPC", RpcTarget.All, item.data);
-            item.RequestPickup(character.GetComponent<PhotonView>());
-            Log("Spawned launcher variant " + variant + ", viewID " + item.photonView.ViewID + ", ammo " + uses.Value);
+
         }
 
         // Clones the stock Anti-Zooka into two separate items: own prefab name, itemID and localized text.
@@ -184,7 +188,7 @@ namespace DynamiteLauncher
 
             if (source == null)
             {
-                Log("ERROR: source item '" + SourcePrefabName + "' not found in ItemDatabase");
+                Logger.LogError("Source item '" + SourcePrefabName + "' not found in ItemDatabase");
                 _registered = true;
                 return;
             }
@@ -201,7 +205,6 @@ namespace DynamiteLauncher
 
             GoldPrefab = RegisterVariant(database, source, holder, GoldPrefabName, ++id, "DYNAMITE LAUNCHER GOLD", LauncherText.GoldNames, LauncherText.GoldDescriptions, true);
             SilverPrefab = RegisterVariant(database, source, holder, SilverPrefabName, ++id, "DYNAMITE LAUNCHER", LauncherText.SilverNames, LauncherText.SilverDescriptions, false);
-            Log("Registered dynamite launchers, last ID " + id);
             _registered = true;
         }
 
@@ -210,6 +213,11 @@ namespace DynamiteLauncher
             GameObject clone = Instantiate(source.gameObject, holder.transform);
             clone.name = prefabName;
             Item item = clone.GetComponent<Item>();
+            if (clone.TryGetComponent<LootData>(out var lootData))
+            {
+                lootData.spawnLocations = SpawnPool.None;
+                lootData.useOtherItemForSpawningValidity = source.gameObject;
+            }
             item.totalUses = SilverAmmo.Value;
             item.itemID = id;
             item.UIData.itemName = displayName;
@@ -225,7 +233,6 @@ namespace DynamiteLauncher
 
         public IEnumerator ExplodeDynamite(Vector3 position)
         {
-            Log("Dynamite explosion at " + position);
             GameObject dynamite = PhotonNetwork.Instantiate("0_Items/Dynamite", position, Quaternion.identity, 0);
             dynamite.GetComponent<PhotonView>().RPC("RPC_Explode", Photon.Pun.RpcTarget.All);
             yield return new WaitForSeconds(Plugin.DynamiteDestroyDelay.Value);

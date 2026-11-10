@@ -78,7 +78,6 @@ namespace DynamiteLauncher
 
         private void Impact(Vector3 point)
         {
-            Plugin.Log("Flare impact at " + point + " after " + _age.ToString("F2") + "s");
             Plugin.Instance.StartCoroutine(Plugin.Instance.ExplodeDynamite(point));
             Finish();
         }
@@ -86,11 +85,6 @@ namespace DynamiteLauncher
         private void Finish()
         {
             _finished = true;
-            if (_age >= Plugin.FlareLifetime.Value)
-            {
-                Plugin.Log("Flare expired without impact");
-            }
-
             PhotonNetwork.Destroy(gameObject);
         }
     }

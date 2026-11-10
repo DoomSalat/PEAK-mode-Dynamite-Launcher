@@ -1,8 +1,8 @@
 {
   "name": "Dynamite_Launcher",
-  "version_number": "1.0.0",
+  "version_number": "1.1.0",
   "website_url": "https://github.com/DoomSalat/PEAK-mode-Dynamite-Launcher",
-  "description": "Camo Anti-Zooka variant that fires a slow red flare turning into instant dynamite on impact. Silver and gold versions. Needs an item spawner mod.",
+  "description": "Silver and gold Anti-Zooka variants that fire an explosive flare. Configurable charge speed and optional host-controlled loot in ordinary and ancient luggage and statue rewards.",
   "dependencies": [
     "BepInEx-BepInExPack_PEAK-5.4.75301"
   ]

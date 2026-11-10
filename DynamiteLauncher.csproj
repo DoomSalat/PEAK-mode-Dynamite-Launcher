@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>DynamiteLauncher</AssemblyName>
+    <Version>1.1.0</Version>
     <RootNamespace>DynamiteLauncher</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
@@ -12,21 +13,23 @@
     </RestoreAdditionalProjectSources>
     <GameDirectory Condition="'$(GameDirectory)' == ''">G:\SteamLibrary\steamapps\common\PEAK</GameDirectory>
     <ManagedDirectory>$(GameDirectory)\PEAK_Data\Managed</ManagedDirectory>
-    <ProfilePlugins Condition="'$(ProfilePlugins)' == ''">$(AppData)\Thunderstore Mod Manager\DataFolder\PEAK\profiles\Default\BepInEx\plugins</ProfilePlugins>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="BepInEx.Core" Version="5.4.21" PrivateAssets="all" />
-    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Assembly-CSharp" Publicize="true">
+    <Reference Include="Assembly-CSharp">
       <HintPath>$(ManagedDirectory)\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="PhotonUnityNetworking" Publicize="true">
+    <Reference Include="PhotonUnityNetworking">
       <HintPath>$(ManagedDirectory)\PhotonUnityNetworking.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Photon3Unity3D">
+      <HintPath>$(ManagedDirectory)\Photon3Unity3D.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="PhotonRealtime">
@@ -68,14 +71,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="assets\camo_red.png" CopyToOutputDirectory="PreserveNewest" Link="camo_red.png" />
-    <None Include="assets\silver_atlas.png" CopyToOutputDirectory="PreserveNewest" Link="silver_atlas.png" />
-    <None Include="assets\icon_silver.png" CopyToOutputDirectory="PreserveNewest" Link="icon_silver.png" />
-    <None Include="assets\icon_gold.png" CopyToOutputDirectory="PreserveNewest" Link="icon_gold.png" />
+    <EmbeddedResource Include="assets\camo_red.png" LogicalName="DynamiteLauncher.camo_red.png" />
+    <EmbeddedResource Include="assets\silver_atlas.png" LogicalName="DynamiteLauncher.silver_atlas.png" />
+    <EmbeddedResource Include="assets\icon_silver.png" LogicalName="DynamiteLauncher.icon_silver.png" />
+    <EmbeddedResource Include="assets\icon_gold.png" LogicalName="DynamiteLauncher.icon_gold.png" />
   </ItemGroup>
 
   <Target Name="CopyToProfile" AfterTargets="Build" Condition="Exists('$(ProfilePlugins)')">
-    <Copy SourceFiles="$(TargetPath);$(ProjectDir)assets\camo_red.png;$(ProjectDir)assets\silver_atlas.png;$(ProjectDir)assets\icon_silver.png;$(ProjectDir)assets\icon_gold.png" DestinationFolder="$(ProfilePlugins)\DynamiteLauncher" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ProfilePlugins)\DynamiteLauncher" />
   </Target>
 
 </Project>

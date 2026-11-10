@@ -34,9 +34,9 @@ namespace DynamiteLauncher
             material.SetFloat("_Smoothness", 0.1f);
         }
 
-        private static void Postfix(Action_Antizooka __instance)
+        private static void Postfix(Item ___item)
         {
-            Apply(__instance.item);
+            Apply(___item);
         }
 
         // Called on spawn and whenever instance data arrives; the marker may come after OnEnable.
@@ -60,7 +60,6 @@ namespace DynamiteLauncher
                 marker.Renderer = renderer;
                 marker.Original = renderer.materials;
                 Refresh(marker);
-                Plugin.Log("Visuals applied: variant " + variant + " on " + item.name + ", viewID " + item.photonView.ViewID + ", materials " + marker.Original.Length);
                 return;
             }
         }
@@ -116,7 +115,6 @@ namespace DynamiteLauncher
         {
             if (__instance.GetComponent<Action_Antizooka>() != null)
             {
-                Plugin.Log("Instance data received for " + __instance.name + ", variant " + Plugin.VariantOf(__instance));
                 CamoPatch.Apply(__instance);
             }
         }

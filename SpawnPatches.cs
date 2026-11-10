@@ -9,7 +9,6 @@ namespace DynamiteLauncher
     {
         private static bool Prefix(string objName)
         {
-            Plugin.Log("SpawnItemInHand(" + objName + ")");
             if (objName == Plugin.SilverPrefabName)
             {
                 Plugin.GiveLauncher(Plugin.SilverVariant);
