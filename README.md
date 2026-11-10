@@ -17,11 +17,11 @@ A new item for PEAK: a camo **Dynamite Launcher** built on the Anti-Zooka. It fi
 | Guided Dynamite Launcher (silver) | Blue camo barrel, silver frame | 3 shots (configurable) |
 | Golden Guided Dynamite Launcher | Blue camo barrel, original gold frame | Infinite (configurable) |
 
-![Guided Dynamite Launcher: firing and steering the flare from its own camera](https://raw.githubusercontent.com/DoomSalat/PEAK-mode-Dynamite-Launcher/main/assets/guided.gif)
+![Guided Dynamite Launcher: firing and steering the flare from its own camera](https://raw.githubusercontent.com/DoomSalat/PEAK-mode-Dynamite-Launcher/dcf1ee75b16302a75a9eb33dad98ef37328da27e/assets/guided.gif)
 
 The **Guided Dynamite Launcher** fires the same slow flare and the same real dynamite on impact as the normal launcher, but you fly with the flare: the camera smoothly leaves your eyes and is mounted rigidly on top of the flare body (30 cm up and 30 cm back by default, so the nose sticks out ahead), the flare never rolls so the view stays level, the flare sound is muted for you, and the mouse steers the flare (your character does not turn meanwhile). The right mouse button always detonates the flare in flight. When the flare ends for any reason (impact, remote detonation, timeout), the view snaps back to your eyes instantly. Steering and camera are local to the shooter; other players just see the flare.
 
-![Dynamite Jumper: rocket jump with a green blast](https://raw.githubusercontent.com/DoomSalat/PEAK-mode-Dynamite-Launcher/main/assets/jumper.gif)
+![Dynamite Jumper: rocket jump with a green blast](https://raw.githubusercontent.com/DoomSalat/PEAK-mode-Dynamite-Launcher/dcf1ee75b16302a75a9eb33dad98ef37328da27e/assets/jumper.gif)
 
 The **Dynamite Jumper** fires the same flare, but its blast is harmless: no real dynamite, no stun, no injury, and no fall damage right after the jump. It only throws you away from the blast point, so shoot at your feet to jump. Everyone nearby is pushed, but only players with the mod see the green explosion; others just see the flare vanish. Left mouse button fires from the front; hold the right mouse button (as long as a normal charge, so the `ChargeSpeedMultiplier` setting applies; a filling circle shows the progress) to fire from the rear end of the barrel, so the flare flies backwards and the blast throws you toward the crosshair (costs one charge, same as a normal shot).
 
@@ -95,7 +95,7 @@ Item names and descriptions are translated into all 15 languages the game suppor
 
 https://github.com/DoomSalat/PEAK-mode-Dynamite-Launcher
 
-![Take the arsenal with you and have fun!](https://raw.githubusercontent.com/DoomSalat/PEAK-mode-Dynamite-Launcher/main/assets/arsenal.jpg)
+![Take the arsenal with you and have fun!](https://raw.githubusercontent.com/DoomSalat/PEAK-mode-Dynamite-Launcher/dcf1ee75b16302a75a9eb33dad98ef37328da27e/assets/arsenal.jpg)
 
 **Take the arsenal with you and have fun!**
 
