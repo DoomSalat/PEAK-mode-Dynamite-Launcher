@@ -17,12 +17,12 @@ namespace DynamiteLauncher
         private const float WindowWidth = 0.899f;
         private const float WindowHeight = 0.099f;
 
-        private static void ApplyCamo(Material material)
+        private static void ApplyCamo(Material material, Texture texture)
         {
             Vector2 scale = new Vector2(1f / WindowWidth, 1f / WindowHeight);
             Vector2 offset = new Vector2(-WindowU / WindowWidth, -WindowV / WindowHeight);
-            material.SetTexture("_BaseMap", Plugin.Camo);
-            material.SetTexture("_MainTex", Plugin.Camo);
+            material.SetTexture("_BaseMap", texture);
+            material.SetTexture("_MainTex", texture);
             material.SetTextureScale("_BaseMap", scale);
             material.SetTextureOffset("_BaseMap", offset);
             material.SetTextureScale("_MainTex", scale);
@@ -85,10 +85,10 @@ namespace DynamiteLauncher
             {
                 // The barrel starts from a copy of the frame material: the stock barrel material carries the space shader.
                 materials[1] = new Material(marker.Original[0]);
-                ApplyCamo(materials[1]);
+                ApplyCamo(materials[1], Variants.IsJump(marker.Variant) ? Plugin.CamoGreen : Plugin.Camo);
             }
 
-            if (marker.Variant == Plugin.SilverVariant && Plugin.SilverTrim.Value)
+            if (Variants.IsSilver(marker.Variant) && Plugin.SilverTrim.Value)
             {
                 materials[0].SetTexture("_MainTex", Plugin.SilverAtlas);
                 materials[0].SetTexture("_BaseMap", Plugin.SilverAtlas);
@@ -134,8 +134,7 @@ namespace DynamiteLauncher
                 return;
             }
 
-            string key = variant == Plugin.GoldVariant ? "DYNAMITE LAUNCHER GOLD" : "DYNAMITE LAUNCHER";
-            __result = LocalizedText.GetText("NAME_" + key);
+            __result = LocalizedText.GetText("NAME_" + Variants.TextKey(variant));
         }
     }
 
@@ -150,7 +149,7 @@ namespace DynamiteLauncher
                 return null;
             }
 
-            return value.Value == Plugin.GoldVariant ? Plugin.GoldIcon : value.Value == Plugin.SilverVariant ? Plugin.SilverIcon : null;
+            return Variants.Icon(value.Value);
         }
 
         private static void Postfix(InventoryItemUI __instance, ItemSlot slot)

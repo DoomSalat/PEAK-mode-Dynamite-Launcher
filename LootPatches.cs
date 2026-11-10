@@ -11,18 +11,52 @@ namespace DynamiteLauncher
         private static void Prefix(SpawnPool __0, out (SpawnPool Pool, Dictionary<ushort, int> Original) __state)
         {
             __state = default;
-            if (!PhotonNetwork.InRoom || !PhotonNetwork.IsMasterClient ||
-                Plugin.SilverPrefab == null || Plugin.GoldPrefab == null)
+            if (!Plugin.SpawnInLoot.Value || !PhotonNetwork.InRoom || !PhotonNetwork.IsMasterClient ||
+                Plugin.SilverPrefab == null || Plugin.GoldPrefab == null || Plugin.JumpSilverPrefab == null || Plugin.JumpGoldPrefab == null)
             {
                 return;
             }
 
+            var additions = new Dictionary<ushort, int>();
+            AddFamily(__0, Plugin.EnableMagicalLoot.Value, Plugin.EnableRareChestLoot.Value, Plugin.ChestLootRarity.Value, Plugin.SilverPrefab, Plugin.GoldPrefab, additions);
+            AddFamily(__0, Plugin.JumperEnableMagicalLoot.Value, Plugin.JumperEnableRareChestLoot.Value, Plugin.JumperChestLootRarity.Value, Plugin.JumpSilverPrefab, Plugin.JumpGoldPrefab, additions);
+            if (additions.Count == 0)
+            {
+                return;
+            }
+
+            if (LootData.AllSpawnWeightData == null)
+            {
+                LootData.PopulateLootData();
+            }
+
+            SpawnPool pool = EffectivePool(__0);
+            if (!LootData.AllSpawnWeightData.TryGetValue(pool, out var weights))
+            {
+                return;
+            }
+
+            var withLaunchers = new Dictionary<ushort, int>(weights);
+            foreach (var addition in additions)
+            {
+                withLaunchers[addition.Key] = LootData.RarityWeights.TryGetValue((Rarity)addition.Value, out int configuredWeight)
+                    ? configuredWeight
+                    : LootData.RarityWeights[Rarity.Rare];
+            }
+
+            __state = (pool, weights);
+            LootData.AllSpawnWeightData[pool] = withLaunchers;
+        }
+
+        // Rarity is stored in the dictionary value until the weight lookup.
+        private static void AddFamily(SpawnPool pool, bool magicalEnabled, bool chestEnabled, Rarity chestRarity, GameObject silver, GameObject gold, Dictionary<ushort, int> additions)
+        {
             Rarity rarity;
-            switch (__0)
+            switch (pool)
             {
                 case SpawnPool.LuggageAncient:
                 case SpawnPool.RespawnCoffin:
-                    if (!Plugin.EnableMagicalLoot.Value)
+                    if (!magicalEnabled)
                     {
                         return;
                     }
@@ -37,37 +71,18 @@ namespace DynamiteLauncher
                 case SpawnPool.LuggageRoots:
                 case SpawnPool.LuggageGloom:
                 case SpawnPool.LuggageCitadel:
-                    if (!Plugin.EnableRareChestLoot.Value)
+                    if (!chestEnabled)
                     {
                         return;
                     }
-                    rarity = Plugin.ChestLootRarity.Value;
+                    rarity = chestRarity;
                     break;
                 default:
                     return;
             }
 
-            if (LootData.AllSpawnWeightData == null)
-            {
-                LootData.PopulateLootData();
-            }
-
-            SpawnPool pool = EffectivePool(__0);
-            if (!LootData.AllSpawnWeightData.TryGetValue(pool, out var weights))
-            {
-                return;
-            }
-
-            int weight = LootData.RarityWeights.TryGetValue(rarity, out int configuredWeight)
-                ? configuredWeight
-                : LootData.RarityWeights[Rarity.Rare];
-            var withLaunchers = new Dictionary<ushort, int>(weights)
-            {
-                [Plugin.SilverPrefab.GetComponent<Item>().itemID] = weight,
-                [Plugin.GoldPrefab.GetComponent<Item>().itemID] = weight
-            };
-            __state = (pool, weights);
-            LootData.AllSpawnWeightData[pool] = withLaunchers;
+            additions[silver.GetComponent<Item>().itemID] = (int)rarity;
+            additions[gold.GetComponent<Item>().itemID] = (int)rarity;
         }
 
         private static void Finalizer((SpawnPool Pool, Dictionary<ushort, int> Original) __state)
@@ -97,16 +112,10 @@ namespace DynamiteLauncher
                 return;
             }
 
-            switch (__0)
+            __state = Variants.FromPrefabName(__0);
+            if (__state == 0)
             {
-                case Plugin.SilverPrefabName:
-                    __state = Plugin.SilverVariant;
-                    break;
-                case Plugin.GoldPrefabName:
-                    __state = Plugin.GoldVariant;
-                    break;
-                default:
-                    return;
+                return;
             }
 
             __0 = Plugin.SourcePrefabName;

@@ -19,13 +19,16 @@ closed = Image.fromarray((barrel * 255).astype(np.uint8)).filter(ImageFilter.Max
 barrel = (np.asarray(closed) > 127) & ~gold & (val > 0.1) & (alpha > 0.5)
 
 lum = rgb @ [0.299, 0.587, 0.114]
-camo = np.asarray(Image.open("camo_red.png").convert("RGB").resize((160, 160), Image.LANCZOS)).astype(np.float64) / 255
 H, W = lum.shape
 yy, xx = np.mgrid[0:H, 0:W]
-camo_pixels = camo[yy % 160, xx % 160]
+
+def camo_pixels_of(name):
+    camo = np.asarray(Image.open(name).convert("RGB").resize((160, 160), Image.LANCZOS)).astype(np.float64) / 255
+    return camo[yy % 160, xx % 160]
 shade = np.clip(0.85 + (lum[..., None] - 0.12) * 1.2, 0.8, 1.15)
 
-def build(silver):
+def build(silver, camo_name):
+    camo_pixels = camo_pixels_of(camo_name)
     out = rgb.copy()
     out[barrel] = np.clip(camo_pixels * shade, 0, 1)[barrel]
     if silver:
@@ -35,5 +38,9 @@ def build(silver):
     res = np.concatenate([out, alpha[..., None]], -1)
     return Image.fromarray((res * 255 + 0.5).astype(np.uint8))
 
-build(True).save("icon_silver.png", optimize=True)
-build(False).save("icon_gold.png", optimize=True)
+build(True, "camo_red.png").save("icon_silver.png", optimize=True)
+build(False, "camo_red.png").save("icon_gold.png", optimize=True)
+build(True, "camo_green.png").save("icon_jump_silver.png", optimize=True)
+build(False, "camo_green.png").save("icon_jump_gold.png", optimize=True)
+build(True, "camo_blue.png").save("icon_blue_silver.png", optimize=True)
+build(False, "camo_blue.png").save("icon_blue_gold.png", optimize=True)

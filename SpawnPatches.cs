@@ -9,19 +9,13 @@ namespace DynamiteLauncher
     {
         private static bool Prefix(string objName)
         {
-            if (objName == Plugin.SilverPrefabName)
-            {
-                Plugin.GiveLauncher(Plugin.SilverVariant);
-            }
-            else if (objName == Plugin.GoldPrefabName)
-            {
-                Plugin.GiveLauncher(Plugin.GoldVariant);
-            }
-            else
+            int variant = Variants.FromPrefabName(objName);
+            if (variant == 0)
             {
                 return true;
             }
 
+            Plugin.GiveLauncher(variant);
             return false;
         }
     }
@@ -37,13 +31,10 @@ namespace DynamiteLauncher
                 return;
             }
 
-            if (path == "0_Items/" + Plugin.SilverPrefabName)
+            const string Folder = "0_Items/";
+            if (path != null && path.StartsWith(Folder))
             {
-                __result = Plugin.SilverPrefab;
-            }
-            else if (path == "0_Items/" + Plugin.GoldPrefabName)
-            {
-                __result = Plugin.GoldPrefab;
+                __result = Variants.Prefab(Variants.FromPrefabName(path.Substring(Folder.Length)));
             }
         }
     }
