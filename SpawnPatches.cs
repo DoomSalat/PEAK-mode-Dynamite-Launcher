@@ -31,10 +31,9 @@ namespace DynamiteLauncher
                 return;
             }
 
-            const string Folder = "0_Items/";
-            if (path != null && path.StartsWith(Folder))
+            if (path != null && path.StartsWith(Plugin.ItemsFolder))
             {
-                __result = Variants.Prefab(Variants.FromPrefabName(path.Substring(Folder.Length)));
+                __result = Variants.Prefab(Variants.FromPrefabName(path.Substring(Plugin.ItemsFolder.Length)));
             }
         }
     }

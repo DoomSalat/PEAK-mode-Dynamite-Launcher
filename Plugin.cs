@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using BepInEx;
 using BepInEx.Configuration;
@@ -9,18 +10,19 @@ using UnityEngine;
 
 namespace DynamiteLauncher
 {
-    [BepInPlugin("capitan.peak.dynamitelauncher", "Dynamite Launcher", "1.2.0")]
+    [BepInPlugin("capitan.peak.dynamitelauncher", "Dynamite Launcher", "2.0.0")]
     public class Plugin : BaseUnityPlugin
     {
-        public static Plugin Instance { get; private set; }
-
-        public static Texture2D Camo { get; private set; }
-
         public const string SilverPrefabName = "DynamiteLauncher";
         public const string GoldPrefabName = "DynamiteLauncherGold";
         public const string JumpSilverPrefabName = "DynamiteJumper";
         public const string JumpGoldPrefabName = "DynamiteJumperGold";
+        public const string GuidedSilverPrefabName = "DynamiteGuided";
+        public const string GuidedGoldPrefabName = "DynamiteGuidedGold";
         internal const string SourcePrefabName = "AntiZooka";
+        internal const string ItemsFolder = "0_Items/";
+        internal const string DynamitePrefabName = "Dynamite";
+        internal const string FlarePrefabName = "Flare";
         private const float ReloadDelay = 0.3f;
 
         // Variant marker stored in item instance data: the item itself stays a stock Anti-Zooka on the network.
@@ -30,6 +32,27 @@ namespace DynamiteLauncher
         public const int GoldVariant = 2;
         public const int JumpSilverVariant = 3;
         public const int JumpGoldVariant = 4;
+        public const int GuidedSilverVariant = 5;
+        public const int GuidedGoldVariant = 6;
+
+        public static Plugin Instance { get; private set; }
+
+        public static Texture2D Camo { get; private set; }
+        public static Texture2D SilverAtlas { get; private set; }
+        public static Texture2D SilverIcon { get; private set; }
+        public static Texture2D GoldIcon { get; private set; }
+        public static GameObject SilverPrefab { get; private set; }
+        public static GameObject GoldPrefab { get; private set; }
+        public static Texture2D CamoGreen { get; private set; }
+        public static Texture2D JumpSilverIcon { get; private set; }
+        public static Texture2D JumpGoldIcon { get; private set; }
+        public static GameObject JumpSilverPrefab { get; private set; }
+        public static GameObject JumpGoldPrefab { get; private set; }
+        public static Texture2D CamoBlue { get; private set; }
+        public static Texture2D GuidedSilverIcon { get; private set; }
+        public static Texture2D GuidedGoldIcon { get; private set; }
+        public static GameObject GuidedSilverPrefab { get; private set; }
+        public static GameObject GuidedGoldPrefab { get; private set; }
 
         internal static ConfigEntry<bool> SpawnInLoot { get; private set; }
         internal static ConfigEntry<bool> EnableRareChestLoot { get; private set; }
@@ -38,6 +61,16 @@ namespace DynamiteLauncher
         internal static ConfigEntry<bool> JumperEnableRareChestLoot { get; private set; }
         internal static ConfigEntry<Rarity> JumperChestLootRarity { get; private set; }
         internal static ConfigEntry<bool> JumperEnableMagicalLoot { get; private set; }
+        internal static ConfigEntry<bool> GuidedEnableRareChestLoot { get; private set; }
+        internal static ConfigEntry<Rarity> GuidedChestLootRarity { get; private set; }
+        internal static ConfigEntry<bool> GuidedEnableMagicalLoot { get; private set; }
+        public static ConfigEntry<int> GuidedSilverAmmo { get; private set; }
+        public static ConfigEntry<bool> GuidedGoldInfiniteAmmo { get; private set; }
+        public static ConfigEntry<int> GuidedCameraHeight { get; private set; }
+        public static ConfigEntry<int> GuidedCameraBack { get; private set; }
+        public static ConfigEntry<int> GuidedCameraBlendTime { get; private set; }
+        public static ConfigEntry<int> GuidedTurnSpeed { get; private set; }
+        public static ConfigEntry<int> GuidedTurnSmoothing { get; private set; }
         public static ConfigEntry<int> JumpSilverAmmo { get; private set; }
         public static ConfigEntry<bool> JumpGoldInfiniteAmmo { get; private set; }
         public static ConfigEntry<float> JumpForce { get; private set; }
@@ -64,21 +97,20 @@ namespace DynamiteLauncher
         private float _reloadAt;
         private bool _registered;
 
-        public static Texture2D SilverAtlas { get; private set; }
-        public static Texture2D SilverIcon { get; private set; }
-        public static Texture2D GoldIcon { get; private set; }
-        public static GameObject SilverPrefab { get; private set; }
-        public static GameObject GoldPrefab { get; private set; }
-        public static Texture2D CamoGreen { get; private set; }
-        public static Texture2D JumpSilverIcon { get; private set; }
-        public static Texture2D JumpGoldIcon { get; private set; }
-        public static GameObject JumpSilverPrefab { get; private set; }
-        public static GameObject JumpGoldPrefab { get; private set; }
-
-
         private void Awake()
         {
             Instance = this;
+            BindConfig();
+            LoadTextures();
+            CamoEnabled.SettingChanged += (sender, args) => CamoPatch.RefreshAll();
+            SilverTrim.SettingChanged += (sender, args) => CamoPatch.RefreshAll();
+            JumpBlast.Subscribe();
+            StartConfigWatcher();
+            new Harmony("capitan.peak.dynamitelauncher").PatchAll();
+        }
+
+        private void BindConfig()
+        {
             SpawnInLoot = Config.Bind("Loot", "SpawnInLoot", false, "Host only. Master switch: while false, no launcher or jumper appears in world loot, whatever the settings below say.");
             EnableRareChestLoot = Config.Bind("Loot", "EnableRareChestLoot", false, "Host only. Add both launchers to ordinary luggage using ChestLootRarity.");
             ChestLootRarity = Config.Bind("Loot", "ChestLootRarity", Rarity.Rare, "Host only. Rarity of both launchers in ordinary luggage when EnableRareChestLoot is enabled.");
@@ -86,6 +118,16 @@ namespace DynamiteLauncher
             JumperEnableRareChestLoot = Config.Bind("Loot", "JumperEnableRareChestLoot", false, "Host only. Add both Dynamite Jumpers to ordinary luggage using JumperChestLootRarity.");
             JumperChestLootRarity = Config.Bind("Loot", "JumperChestLootRarity", Rarity.Rare, "Host only. Rarity of both Dynamite Jumpers in ordinary luggage when JumperEnableRareChestLoot is enabled.");
             JumperEnableMagicalLoot = Config.Bind("Loot", "JumperEnableMagicalLoot", false, "Host only. Add both Dynamite Jumpers to statue rewards and ancient luggage as Mythic loot.");
+            GuidedEnableRareChestLoot = Config.Bind("Loot", "GuidedEnableRareChestLoot", false, "Host only. Add both Guided Dynamite Launchers to ordinary luggage using GuidedChestLootRarity.");
+            GuidedChestLootRarity = Config.Bind("Loot", "GuidedChestLootRarity", Rarity.Rare, "Host only. Rarity of both Guided Dynamite Launchers in ordinary luggage when GuidedEnableRareChestLoot is enabled.");
+            GuidedEnableMagicalLoot = Config.Bind("Loot", "GuidedEnableMagicalLoot", false, "Host only. Add both Guided Dynamite Launchers to statue rewards and ancient luggage as Mythic loot.");
+            GuidedSilverAmmo = Config.Bind("Guided", "SilverAmmo", 3, new ConfigDescription("Shots in the silver Guided Dynamite Launcher. Applies to newly spawned launchers.", new AcceptableValueRange<int>(1, 999)));
+            GuidedGoldInfiniteAmmo = Config.Bind("Guided", "GoldInfiniteAmmo", true, "If false, the golden Guided Dynamite Launcher spends ammo like the silver one.");
+            GuidedCameraHeight = Config.Bind("Guided", "CameraHeightCm", 30, new ConfigDescription("How far above the flare axis the camera is mounted, in centimetres (fixed to the flare).", new AcceptableValueRange<int>(0, 3000)));
+            GuidedCameraBack = Config.Bind("Guided", "CameraBackCm", 30, new ConfigDescription("How far behind the flare centre the camera is mounted, in centimetres (fixed to the flare).", new AcceptableValueRange<int>(0, 3000)));
+            GuidedCameraBlendTime = Config.Bind("Guided", "CameraBlendMs", 400, new ConfigDescription("How long the camera takes to fly from your eyes onto the flare, in milliseconds.", new AcceptableValueRange<int>(50, 3000)));
+            GuidedTurnSpeed = Config.Bind("Guided", "TurnSpeedPercent", 100, new ConfigDescription("Mouse steering strength in percent, on top of the game's mouse sensitivity setting.", new AcceptableValueRange<int>(10, 500)));
+            GuidedTurnSmoothing = Config.Bind("Guided", "TurnSmoothing", 8, new ConfigDescription("How quickly steering follows the mouse. Lower is smoother but laggier.", new AcceptableValueRange<int>(1, 60)));
             JumpSilverAmmo = Config.Bind("Jumper", "SilverAmmo", 3, new ConfigDescription("Shots in the silver Dynamite Jumper. Applies to newly spawned jumpers.", new AcceptableValueRange<int>(1, 999)));
             JumpGoldInfiniteAmmo = Config.Bind("Jumper", "GoldInfiniteAmmo", true, "If false, the gold Dynamite Jumper spends ammo like the silver one.");
             JumpForce = Config.Bind("Jumper", "LaunchSpeed", 120f, new ConfigDescription("Speed in m/s the blast gives at point-blank range; it fades with distance.", new AcceptableValueRange<float>(0f, 300f)));
@@ -106,22 +148,20 @@ namespace DynamiteLauncher
             DynamiteDestroyDelay = Config.Bind("Explosion", "DynamiteDestroyDelaySeconds", 0.2f, "Time before the exploded dynamite object is removed.");
             SilverTrim = Config.Bind("Visual", "SilverTrim", true, "Silver stars/outline/frame on the silver launcher (local only); gold launcher keeps the original gold.");
             CamoEnabled = Config.Bind("Visual", "Camo", true, "Red camo on the launcher barrel (local only).");
-            Camo = LoadTexture("camo_red.png");
-            Camo.wrapMode = TextureWrapMode.Repeat;
-            Camo.Compress(true);
+        }
+
+        private void LoadTextures()
+        {
+            Camo = LoadCamo("camo_red.png");
+            CamoGreen = LoadCamo("camo_green.png");
+            CamoBlue = LoadCamo("camo_blue.png");
             SilverAtlas = LoadTexture("silver_atlas.png");
-            CamoGreen = LoadTexture("camo_green.png");
-            CamoGreen.wrapMode = TextureWrapMode.Repeat;
-            CamoGreen.Compress(true);
+            GuidedSilverIcon = LoadTexture("icon_blue_silver.png");
+            GuidedGoldIcon = LoadTexture("icon_blue_gold.png");
             JumpSilverIcon = LoadTexture("icon_jump_silver.png");
             JumpGoldIcon = LoadTexture("icon_jump_gold.png");
             SilverIcon = LoadTexture("icon_silver.png");
             GoldIcon = LoadTexture("icon_gold.png");
-            CamoEnabled.SettingChanged += (sender, args) => CamoPatch.RefreshAll();
-            SilverTrim.SettingChanged += (sender, args) => CamoPatch.RefreshAll();
-            JumpBlast.Subscribe();
-            StartConfigWatcher();
-            new Harmony("capitan.peak.dynamitelauncher").PatchAll();
         }
 
         // Edits to the .cfg file are picked up while the game runs; all values are read live, so no restart is needed.
@@ -140,6 +180,14 @@ namespace DynamiteLauncher
         {
             JumpBlast.Unsubscribe();
             _configWatcher?.Dispose();
+        }
+
+        private static Texture2D LoadCamo(string fileName)
+        {
+            Texture2D texture = LoadTexture(fileName);
+            texture.wrapMode = TextureWrapMode.Repeat;
+            texture.Compress(true);
+            return texture;
         }
 
         private static Texture2D LoadTexture(string fileName)
@@ -187,7 +235,7 @@ namespace DynamiteLauncher
                 return;
             }
 
-            GameObject spawned = PhotonNetwork.Instantiate("0_Items/" + SourcePrefabName, character.Center, Quaternion.identity, 0);
+            GameObject spawned = PhotonNetwork.Instantiate(ItemsFolder + SourcePrefabName, character.Center, Quaternion.identity, 0);
             Item item = spawned.GetComponent<Item>();
             InitializeLauncher(item, variant);
             item.RequestPickup(character.GetComponent<PhotonView>());
@@ -202,7 +250,6 @@ namespace DynamiteLauncher
             uses.Value = Variants.Ammo(variant);
             item.GetData<FloatItemData>(DataEntryKey.UseRemainingPercentage).Value = 1f;
             item.GetComponent<PhotonView>().RPC("SetItemInstanceDataRPC", RpcTarget.All, item.data);
-
         }
 
         // Clones the stock Anti-Zooka into two separate items: own prefab name, itemID and localized text.
@@ -245,6 +292,8 @@ namespace DynamiteLauncher
             SilverPrefab = RegisterVariant(database, source, holder, SilverVariant, ++id, LauncherText.SilverNames, LauncherText.SilverDescriptions);
             JumpGoldPrefab = RegisterVariant(database, source, holder, JumpGoldVariant, ++id, LauncherText.JumpGoldNames, LauncherText.JumpGoldDescriptions);
             JumpSilverPrefab = RegisterVariant(database, source, holder, JumpSilverVariant, ++id, LauncherText.JumpSilverNames, LauncherText.JumpSilverDescriptions);
+            GuidedGoldPrefab = RegisterVariant(database, source, holder, GuidedGoldVariant, ++id, LauncherText.GuidedGoldNames, LauncherText.GuidedGoldDescriptions);
+            GuidedSilverPrefab = RegisterVariant(database, source, holder, GuidedSilverVariant, ++id, LauncherText.GuidedSilverNames, LauncherText.GuidedSilverDescriptions);
             _registered = true;
         }
 
@@ -265,8 +314,8 @@ namespace DynamiteLauncher
             item.UIData.itemName = displayName;
             item.UIData.icon = Variants.Icon(variant);
 
-            LocalizedText.mainTable[LocalizedText.GetNameIndex(displayName)] = new System.Collections.Generic.List<string>(names);
-            LocalizedText.mainTable[LocalizedText.GetDescriptionIndex(displayName)] = new System.Collections.Generic.List<string>(descriptions);
+            LocalizedText.mainTable[LocalizedText.GetNameIndex(displayName)] = new List<string>(names);
+            LocalizedText.mainTable[LocalizedText.GetDescriptionIndex(displayName)] = new List<string>(descriptions);
 
             database.AddRuntimeEntry(item);
             database.itemLookup[id] = item;
@@ -275,9 +324,9 @@ namespace DynamiteLauncher
 
         public IEnumerator ExplodeDynamite(Vector3 position)
         {
-            GameObject dynamite = PhotonNetwork.Instantiate("0_Items/Dynamite", position, Quaternion.identity, 0);
-            dynamite.GetComponent<PhotonView>().RPC("RPC_Explode", Photon.Pun.RpcTarget.All);
-            yield return new WaitForSeconds(Plugin.DynamiteDestroyDelay.Value);
+            GameObject dynamite = PhotonNetwork.Instantiate(ItemsFolder + DynamitePrefabName, position, Quaternion.identity, 0);
+            dynamite.GetComponent<PhotonView>().RPC("RPC_Explode", RpcTarget.All);
+            yield return new WaitForSeconds(DynamiteDestroyDelay.Value);
             if (dynamite != null)
             {
                 PhotonNetwork.Destroy(dynamite);

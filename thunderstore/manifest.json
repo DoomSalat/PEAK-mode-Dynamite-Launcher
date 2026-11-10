@@ -1,8 +1,8 @@
 {
   "name": "Dynamite_Launcher",
-  "version_number": "1.2.0",
+  "version_number": "2.0.0",
   "website_url": "https://github.com/DoomSalat/PEAK-mode-Dynamite-Launcher",
-  "description": "Silver and gold Anti-Zooka variants that fire an explosive flare, plus a green Dynamite Jumper that throws you harmlessly for rocket jumps. Configurable charge speed and optional host-controlled loot (off by default).",
+  "description": "Silver and gold Anti-Zooka variants that fire an explosive flare, a green Dynamite Jumper for rocket jumps and a blue Guided launcher: steer the flare with the mouse from its own camera. Configurable, optional loot (off by default).",
   "dependencies": [
     "BepInEx-BepInExPack_PEAK-5.4.75301"
   ]

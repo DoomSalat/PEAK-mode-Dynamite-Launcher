@@ -6,6 +6,8 @@ namespace DynamiteLauncher
 {
     public class FlareProjectile : MonoBehaviour
     {
+        private const float CastMargin = 0.15f;
+
         private static Color FlareColor
         {
             get
@@ -16,35 +18,14 @@ namespace DynamiteLauncher
 
         private static readonly List<FlareProjectile> Active = new List<FlareProjectile>();
 
-        public Vector3 Direction;
-        public Item Source;
-
-        // Explodes every flare in flight that was fired from this launcher.
-        public static void DetonateAll(Item source)
-        {
-            for (int i = Active.Count - 1; i >= 0; i--)
-            {
-                FlareProjectile flare = Active[i];
-                if (flare == null)
-                {
-                    Active.RemoveAt(i);
-                }
-                else if (flare.Source == source && !flare._finished)
-                {
-                    flare.Impact(flare.transform.position);
-                }
-            }
-        }
-
-        // The flare's flame end is its local +Y: point it backwards so the opposite end leads.
-        public static Quaternion RotationFor(Vector3 direction)
-        {
-            return Quaternion.FromToRotation(Vector3.up, -direction);
-        }
+        public Vector3 Direction { get; set; } // Set: assigned by ShootPatch.Launch right after AddComponent
+        public Item Source { get; set; } // Set: assigned by ShootPatch.Launch right after AddComponent
+        public int Variant { get; set; } // Set: read from the launcher at fire time, because the launcher item can be destroyed (stowed) while the flare flies
 
         private Item _item;
         private float _age;
         private bool _finished;
+        private bool _guided;
 
         private void Start()
         {
@@ -52,6 +33,11 @@ namespace DynamiteLauncher
             _item.rig.useGravity = false;
             _item.blockInteraction = true;
             Active.Add(this);
+            _guided = Variants.IsGuided(Variant);
+            if (_guided && Source != null && Source.photonView.IsMine)
+            {
+                GuidedCamera.Begin(this);
+            }
 
             if (!Plugin.FlareLit.Value)
             {
@@ -62,6 +48,12 @@ namespace DynamiteLauncher
             flare.flareColor = FlareColor;
             _item.GetData<ColorItemData>(DataEntryKey.Color).Value = FlareColor;
             _item.GetData<BoolItemData>(DataEntryKey.FlareActive).Value = true;
+        }
+
+        private void OnDestroy()
+        {
+            Active.Remove(this);
+            GuidedCamera.End(this);
         }
 
         private void FixedUpdate()
@@ -75,9 +67,9 @@ namespace DynamiteLauncher
             Rigidbody rig = _item.rig;
             rig.linearVelocity = Direction * Plugin.FlareSpeed.Value;
             rig.angularVelocity = Vector3.zero;
-            rig.rotation = RotationFor(Direction);
+            rig.rotation = _guided ? GuidedCamera.BodyRotation(Direction) : RotationFor(Direction);
 
-            float distance = Plugin.FlareSpeed.Value * Time.fixedDeltaTime + 0.15f;
+            float distance = Plugin.FlareSpeed.Value * Time.fixedDeltaTime + CastMargin;
             RaycastHit[] hits = Physics.SphereCastAll(rig.position, Plugin.FlareRadius.Value, Direction, distance, HelperFunctions.AllPhysical, QueryTriggerInteraction.Ignore);
             bool hasImpact = false;
             float nearestDistance = float.MaxValue;
@@ -109,9 +101,32 @@ namespace DynamiteLauncher
             }
         }
 
-        internal static void Detonate(Item source, Vector3 point)
+        // Explodes every flare in flight that was fired from this launcher.
+        public static void DetonateAll(Item source)
         {
-            if (Variants.IsJump(Plugin.VariantOf(source)))
+            for (int i = Active.Count - 1; i >= 0; i--)
+            {
+                FlareProjectile flare = Active[i];
+                if (flare == null)
+                {
+                    Active.RemoveAt(i);
+                }
+                else if (flare.Source == source && !flare._finished)
+                {
+                    flare.Impact(flare.transform.position);
+                }
+            }
+        }
+
+        // The flare's flame end is its local +Y: point it backwards so the opposite end leads.
+        public static Quaternion RotationFor(Vector3 direction)
+        {
+            return Quaternion.FromToRotation(Vector3.up, -direction);
+        }
+
+        internal static void Detonate(int variant, Vector3 point)
+        {
+            if (Variants.IsJump(variant))
             {
                 JumpBlast.Trigger(point);
             }
@@ -123,18 +138,14 @@ namespace DynamiteLauncher
 
         private void Impact(Vector3 point)
         {
-            Detonate(Source, point);
+            Detonate(Variant, point);
             Finish();
-        }
-
-        private void OnDestroy()
-        {
-            Active.Remove(this);
         }
 
         private void Finish()
         {
             _finished = true;
+            GuidedCamera.End(this);
             PhotonNetwork.Destroy(gameObject);
         }
     }

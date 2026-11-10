@@ -1,16 +1,24 @@
 # Dynamite Launcher — Feature Index
 
-> Четыре варианта клона AntiZooka (Launcher: серебро/золото, Jumper: серебро/золото): Dynamite Launcher (серебро, конечные заряды) и Golden Dynamite Launcher (бесконечные заряды). Выстрел — медленный горящий флаер, при столкновении — мгновенный динамит. Версия 1.2.0. Jumper (зелёный камуфляж) — безвредный взрыв-толчок для прыжков.
+> Шесть вариантов клона AntiZooka (Launcher, Jumper, Guided: серебро/золото): Dynamite Launcher (серебро, конечные заряды) и Golden Dynamite Launcher (бесконечные заряды). Выстрел — медленный горящий флаер, при столкновении — мгновенный динамит. Версия 2.0.0. Jumper (зелёный камуфляж) — безвредный взрыв-толчок для прыжков.
 
 ## Layer Map
 ```
-Plugin (BepInEx entry, конфиг, каталог, VariantOf/InitializeLauncher/GiveLauncher, ExplodeDynamite)
-├── ShootPatches.cs  — ShootPatch, RemoteShotPatch, ChargeSpeedPatch, RangePatch, InfiniteAmmoPatch
+Plugin.cs            — BepInEx entry: BindConfig, LoadTextures, каталог (RegisterVariant), VariantOf/InitializeLauncher/GiveLauncher, ExplodeDynamite
+├── Variants.cs      — помощники по вариантам (IsJump/IsGuided/IsGold/PrefabName/FromData/Camo/Ammo/InfiniteAmmo/Icon)
+├── ShootPatch.cs    — ShootPatch: Launch (общий запуск флаера, SpawnBlocked), prefix RunAction
+├── RemoteShotPatch.cs — подмена выстрела игрока без мода
+├── SecondaryUsePatches.cs — SecondaryUsePatch (ПКМ), DetonateProgressPatch, DetonateAllowedPatch
+├── ItemUsePatches.cs — ChargeSpeedPatch, RangePatch, InfiniteAmmoPatch
+├── ItemPromptPatch.cs — строки подсказок ЛКМ/ПКМ в ванильном UI справа
+├── FlareProjectile.cs — полёт флаера, SphereCast, Detonate/DetonateAll
+├── GuidedCamera.cs  — камера и мышиное управление флаера синего лаунчера (+ патчи MainCameraMovement.LateUpdate, CharacterMovement.CanMoveCamera)
+├── JumpBlast.cs     — взрыв Jumper: эффект, толчок, событие 77
+├── ExplosionRecolor.cs — перекраска взрыва динамита в зелёный
 ├── VisualPatches.cs — CamoPatch, VariantDataPatch, ItemNamePatch, InventoryIconPatch, BackpackIconPatch, CamoMarker
 ├── SpawnPatches.cs  — SpawnInHandPatch, ResourcesLoadPatch
 ├── LootPatches.cs   — LauncherLootPoolPatch, LauncherLootSpawnPatch
-├── LauncherText.cs  — названия/описания, 15 языков
-└── FlareProjectile.cs — движение флаера, SphereCast, динамит
+└── LauncherText.cs  — названия/описания/подсказки, 15 языков
 ```
 
 ## Network model
@@ -27,14 +35,17 @@ Plugin (BepInEx entry, конфиг, каталог, VariantOf/InitializeLaunche
 - **Стреляющий без мода** (только при `Launcher.ReplaceOthersShots = true`, по умолчанию выключено): его клиент создаёт `AntiSphere`. `RemoteShotPatch` (prefix `AntiSphere.FixedUpdate`, один раз на сферу) проверяет: сфера чужая, у её владельца в руке лаунчер с меткой, создатель лаунчера (ключ 201) — текущий клиент. Тогда запускает флаер от `rayOrigin` в точку сферы и удаляет сферу: `PhotonNetwork.Destroy`, если владелец/мастер, иначе сырое событие Photon 204 (`OpRaiseEvent`, ключ `0` = ViewID) 4 раза с интервалом 0.4 с плюс локальный `Object.Destroy`. Хостом быть не нужно.
 
 ## Dynamite Jumper
-Варианты `Plugin.JumpSilverVariant` (3) и `JumpGoldVariant` (4) (ключ 200), префабы `DynamiteJumper`/`DynamiteJumperGold`, зелёный камуфляж (`camo_green.png`), иконки `icon_jump_*.png`. Выстрел тот же (флаер), но `FlareProjectile.Impact` для jump-варианта вызывает `JumpBlast.Trigger(point)` вместо динамита: локально эффект (префаб взрыва динамита, из которого удалены `AOE`) + толчок локального персонажа (`Bodypart.AddForce` по `partList` в течение 0.15 с корутиной `PushOverTime`, чтобы контроллер движения не съел одиночный импульс; без `Fall` и статусов, `CapFallDamage(0, 8 с)`; скорость задаёт `LaunchSpeed`, м/с), остальных персонажей в радиусе толкает штатный RPC `RPCA_AddForceAtPosition` (понимают все клиенты, в том числе без мода: они только отлетают, взрыва не видят). Клиентам с модом дополнительно уходит событие Photon 77 (`float[3]`): они рисуют взрыв и получают `CapFallDamage`. Взрыв: штатный префаб взрыва динамита без `AOE`, все цвета перекрашены в зелёный (`JumpBlast.Recolor`: ParticleSystem start/overLifetime/bySpeed/trails, цвета и текстуры всех свойств шейдера материала по перечислению свойств, у текстур меняются каналы R и G; свет). Огненные шары создаёт не префаб, а `ExplosionEffect.Start` позже из своего поля `explosionOrb`, поэтому `JumpBlast.GreenOrb` подменяет его перекрашенной копией (живёт весь сеанс). Правила атаки jump-вариантов: ЛКМ — обычный выстрел спереди; ПКМ — выстрел сзади (`DetonatePatch` для jump-варианта вызывает `FireRear`: `ShootPatch.Launch(..., rear: true)` + `Action_ReduceUses.RunAction`, один выстрел за нажатие, при 0 зарядов ничего; ПКМ-подрыв флаеров у них не работает; `DetonateAllowedPatch`/`DetonateProgressPatch` для них включены всегда). В `ShootPatch.Launch` при `rear` вылет сзади и в обратную сторону, взрыв за спиной; если сзади стена, `SpawnBlocked` взрывает сразу у стены (проверка `SpawnBlocked` общая для всех выстрелов всех вариантов, в том числе вперёд и чужих через `RemoteShotPatch`: если в точке появления флаера твёрдый коллайдер, взрыв происходит у препятствия через `FlareProjectile.Detonate`). `FlareProjectile` теперь считает попаданием и случай «каст начался внутри коллайдера» (кроме своего персонажа), поэтому флаер не застревает в меше. Помощники по вариантам — `Variants.cs`.
+Варианты `Plugin.JumpSilverVariant` (3) и `JumpGoldVariant` (4) (ключ 200), префабы `DynamiteJumper`/`DynamiteJumperGold`, зелёный камуфляж (`camo_green.png`), иконки `icon_jump_*.png`. Выстрел тот же (флаер), но `FlareProjectile.Impact` для jump-варианта вызывает `JumpBlast.Trigger(point)` вместо динамита: локально эффект (префаб взрыва динамита, из которого удалены `AOE`) + толчок локального персонажа (`Bodypart.AddForce` по `partList` в течение 0.15 с корутиной `PushOverTime`, чтобы контроллер движения не съел одиночный импульс; без `Fall` и статусов, `CapFallDamage(0, 8 с)`; скорость задаёт `LaunchSpeed`, м/с), остальных персонажей в радиусе толкает штатный RPC `RPCA_AddForceAtPosition` (понимают все клиенты, в том числе без мода: они только отлетают, взрыва не видят). Клиентам с модом дополнительно уходит событие Photon 77 (`float[3]`): они рисуют взрыв и получают `CapFallDamage`. Взрыв: штатный префаб взрыва динамита без `AOE`, все цвета перекрашены в зелёный (`ExplosionRecolor.Apply`: ParticleSystem start/overLifetime/bySpeed/trails, цвета и текстуры всех свойств шейдера материала по перечислению свойств, у текстур меняются каналы R и G; свет). Огненные шары создаёт не префаб, а `ExplosionEffect.Start` позже из своего поля `explosionOrb`, поэтому `JumpBlast.GreenOrb` (перекраска через `ExplosionRecolor`) подменяет его перекрашенной копией (живёт весь сеанс). Правила атаки jump-вариантов: ЛКМ — обычный выстрел спереди; ПКМ нужно удерживать столько же, сколько заряд ЛКМ (`usingTimePrimary / ChargeSpeedMultiplier`, общая настройка скорости выстрела) — выстрел сзади (`SecondaryUsePatch` запускает таймер `JumpHold.Begin`, `JumpHoldTickPatch` (postfix `Item.ContinueUseSecondary`) после выдержки вызывает `FireRear`, круг прогресса рисуют `JumpHoldProgressPatch`/`JumpHoldShowPatch`, `JumpHoldCancelPatch` сбрасывает таймер при отпускании; `FireRear`: `ShootPatch.Launch(..., rear: true)` + `Action_ReduceUses.RunAction`, один выстрел за нажатие, при 0 зарядов ничего; ПКМ-подрыв флаеров у них не работает; `DetonateAllowedPatch`/`DetonateProgressPatch` для них включены всегда). В `ShootPatch.Launch` при `rear` вылет сзади и в обратную сторону, взрыв за спиной; если сзади стена, `SpawnBlocked` взрывает сразу у стены (проверка `SpawnBlocked` общая для всех выстрелов всех вариантов, в том числе вперёд и чужих через `RemoteShotPatch`: если в точке появления флаера твёрдый коллайдер, взрыв происходит у препятствия через `FlareProjectile.Detonate`). `FlareProjectile` теперь считает попаданием и случай «каст начался внутри коллайдера» (кроме своего персонажа), поэтому флаер не застревает в меше. Помощники по вариантам — `Variants.cs`.
+
+## Guided Dynamite Launcher
+Варианты `GuidedSilverVariant` (5) и `GuidedGoldVariant` (6), префабы `DynamiteGuided`/`DynamiteGuidedGold`, синий камуфляж (`camo_blue.png`), иконки `icon_blue_*.png`. Выстрел и взрыв как у обычного лаунчера (настоящий динамит). ПКМ всегда подрывает флаеры (`SecondaryUsePatch.UsesRightButton`, независимо от `DetonateOnRightClick`). `FlareProjectile.Start` для флаера guided-варианта владельца вызывает `GuidedCamera.Begin(flare)`; `Finish`/`OnDestroy` вызывают `GuidedCamera.End(flare)`. Пока камера активна: postfix `MainCameraMovement.LateUpdate` (`GuidedCameraPatch` -> `GuidedCamera.Tick`) после ванильной камеры ставит позицию/поворот: камера жёстко закреплена на корпусе флаера как часть префаба (фиксированное смещение назад `CameraBackCm`=30 и вверх `CameraHeightCm`=30 в локальных осях флаера, фиксированный локальный поворот `MountRotation`, своего поворота у камеры нет; корпус флаера guided-варианта не крутится вокруг оси (`GuidedCamera.BodyRotation`: нос по направлению, камера всегда сверху), поза считается из `BodyRotation(Direction)`, без отставания на физический тик), первые `CameraBlendMs` мс плавно (SmoothStep) перелетает из глаз игрока; мышь (`input.lookInput` × ванильная чувствительность × `TurnSpeedPercent`, инверсии X/Y как в игре, фильтр низких частот `TurnSmoothing`) меняет yaw/pitch и `FlareProjectile.Direction` (pitch ±85°); все `AudioSource` флаера на время полёта глушатся до 10% (каждый кадр); `GuidedLookLockPatch` (postfix `CharacterMovement.CanMoveCamera` -> false) не даёт мыши вращать тело. Целочисленные настройки (см. и README) нужны, потому что дробные значения в конфиг-менеджере пользователя не вводятся. Конец полёта по любой причине снимает оверрайд, и ванильный `CharacterCam` в тот же кадр возвращает вид в глаза (без сглаживания). Также снимается при смерти/обмороке.
 
 ## Entry points
 | Trigger | Handler |
 |---|---|
 | Выстрел владельца с модом | ShootPatch |
 | Выстрел игрока без мода | RemoteShotPatch (подменяющий клиент) |
-| ПКМ с лаунчером в руках | DetonatePatch (postfix `Item.StartUseSecondary`; у Jumper вместо подрыва — выстрел сзади) -> `FlareProjectile.DetonateAll(item)`: взрыв всех летящих флаеров этого лаунчера; DetonateAllowedPatch разрешает ПКМ без патронов; DetonateProgressPatch скрывает заполняющийся кружок (`Item.shouldShowCastProgress`) |
+| ПКМ с лаунчером в руках | SecondaryUsePatch (postfix `Item.StartUseSecondary`; у Jumper вместо подрыва — выстрел сзади) -> `FlareProjectile.DetonateAll(item)`: взрыв всех летящих флаеров этого лаунчера; DetonateAllowedPatch разрешает ПКМ без патронов; DetonateProgressPatch скрывает заполняющийся кружок (`Item.shouldShowCastProgress`) |
 | Удержание кнопки | ChargeSpeedPatch (делит `usingTimePrimary` на `ChargeSpeedMultiplier`) |
 | Spawner Premium | SpawnInHandPatch -> `GiveLauncher(variant)`, `ResourcesLoadPatch` отвечает на `Resources.Load` |
 | Сундуки (хост) | LauncherLootPoolPatch подмешивает лаунчеры в пул, LauncherLootSpawnPatch подменяет имя на AntiZooka и вызывает `InitializeLauncher` |
@@ -42,7 +53,10 @@ Plugin (BepInEx entry, конфиг, каталог, VariantOf/InitializeLaunche
 ## Classes
 | Class | Role |
 |---|---|
-| ShootPatch | prefix `RunAction`; `Launch(muzzle, direction)` общий запуск флаера |
+| ShootPatch | prefix `RunAction`; `Launch(source, muzzle, direction, rear)` общий запуск флаера |
+| SecondaryUsePatch | postfix `StartUseSecondary` (ПКМ): лаунчер — подрыв флаеров, Jumper — выстрел сзади |
+| ItemPromptPatch | postfix `GUIManager.UpdateItemPrompts`: тексты ЛКМ/ПКМ в ванильных строках подсказок |
+| JumpBlast / ExplosionRecolor | взрыв Jumper и его перекраска |
 | RemoteShotPatch | подмена выстрела игрока без мода (см. выше) |
 | ChargeSpeedPatch | множитель скорости зарядки, finalizer возвращает значение |
 | RangePatch | лаунчер всегда `isShootable` |
@@ -62,7 +76,7 @@ Plugin (BepInEx entry, конфиг, каталог, VariantOf/InitializeLaunche
 Текстуры (`camo_red.png`, `silver_atlas.png`, `icon_silver.png`, `icon_gold.png`) вшиты в dll как `EmbeddedResource` (`DynamiteLauncher.<file>.png`). `assets/gen_icons.py` перекрашивает иконку AntiZooka. Клон-записи каталога (свои itemID) существуют локально только для списка Premium и не инстанцируются; `LootData.spawnLocations = None`.
 
 ## Build / Files
-`dotnet build -c Release`; в профиль копируется только dll, если задан `ProfilePlugins`. Папка `thunderstore/` — manifest.json и icon.png; корневой README.md входит в пакет.
+`dotnet build -c Release`; dll берётся из `bin/Release/netstandard2.1/`, в профиль копируется только если задан `ProfilePlugins`. Папка `thunderstore/` — manifest.json и icon.png; корневой README.md входит в пакет.
 
 ## Cross-Feature / Save
 Сохранения нет (состояние в instance data предмета). Зависит от Photon (ссылка на `Photon3Unity3D.dll` для `Hashtable`/`OpRaiseEvent`).

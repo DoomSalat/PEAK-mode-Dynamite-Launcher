@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>DynamiteLauncher</AssemblyName>
-    <Version>1.2.0</Version>
+    <Version>2.0.0</Version>
     <RootNamespace>DynamiteLauncher</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
@@ -55,6 +55,10 @@
       <HintPath>$(ManagedDirectory)\UnityEngine.AnimationModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(ManagedDirectory)\UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.ImageConversionModule">
       <HintPath>$(ManagedDirectory)\UnityEngine.ImageConversionModule.dll</HintPath>
       <Private>false</Private>
@@ -75,6 +79,14 @@
       <HintPath>$(ManagedDirectory)\Sirenix.Serialization.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Zorro.Settings.Runtime">
+      <HintPath>$(ManagedDirectory)\Zorro.Settings.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Zorro.ControllerSupport">
+      <HintPath>$(ManagedDirectory)\Zorro.ControllerSupport.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Zorro.Core.Runtime">
       <HintPath>$(ManagedDirectory)\Zorro.Core.Runtime.dll</HintPath>
       <Private>false</Private>
@@ -89,10 +101,17 @@
     <EmbeddedResource Include="assets\camo_green.png" LogicalName="DynamiteLauncher.camo_green.png" />
     <EmbeddedResource Include="assets\icon_jump_silver.png" LogicalName="DynamiteLauncher.icon_jump_silver.png" />
     <EmbeddedResource Include="assets\icon_jump_gold.png" LogicalName="DynamiteLauncher.icon_jump_gold.png" />
+    <EmbeddedResource Include="assets\camo_blue.png" LogicalName="DynamiteLauncher.camo_blue.png" />
+    <EmbeddedResource Include="assets\icon_blue_silver.png" LogicalName="DynamiteLauncher.icon_blue_silver.png" />
+    <EmbeddedResource Include="assets\icon_blue_gold.png" LogicalName="DynamiteLauncher.icon_blue_gold.png" />
   </ItemGroup>
 
-  <Target Name="CopyToProfile" AfterTargets="Build" Condition="Exists('$(ProfilePlugins)')">
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ProfilePlugins)\DynamiteLauncher" />
+  <PropertyGroup>
+    <ProfilePlugins Condition="'$(ProfilePlugins)' == ''">$(APPDATA)\Thunderstore Mod Manager\DataFolder\PEAK\profiles\Default\BepInEx\plugins</ProfilePlugins>
+  </PropertyGroup>
+
+  <Target Name="CopyToProfile" AfterTargets="Build" Condition="Exists('$(ProfilePlugins)\Unknown-DynamiteLauncher')">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ProfilePlugins)\Unknown-DynamiteLauncher" />
   </Target>
 
 </Project>

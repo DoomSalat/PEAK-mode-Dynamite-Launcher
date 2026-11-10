@@ -12,7 +12,8 @@ namespace DynamiteLauncher
         {
             __state = default;
             if (!Plugin.SpawnInLoot.Value || !PhotonNetwork.InRoom || !PhotonNetwork.IsMasterClient ||
-                Plugin.SilverPrefab == null || Plugin.GoldPrefab == null || Plugin.JumpSilverPrefab == null || Plugin.JumpGoldPrefab == null)
+                Plugin.SilverPrefab == null || Plugin.GoldPrefab == null || Plugin.JumpSilverPrefab == null || Plugin.JumpGoldPrefab == null ||
+                Plugin.GuidedSilverPrefab == null || Plugin.GuidedGoldPrefab == null)
             {
                 return;
             }
@@ -20,6 +21,7 @@ namespace DynamiteLauncher
             var additions = new Dictionary<ushort, int>();
             AddFamily(__0, Plugin.EnableMagicalLoot.Value, Plugin.EnableRareChestLoot.Value, Plugin.ChestLootRarity.Value, Plugin.SilverPrefab, Plugin.GoldPrefab, additions);
             AddFamily(__0, Plugin.JumperEnableMagicalLoot.Value, Plugin.JumperEnableRareChestLoot.Value, Plugin.JumperChestLootRarity.Value, Plugin.JumpSilverPrefab, Plugin.JumpGoldPrefab, additions);
+            AddFamily(__0, Plugin.GuidedEnableMagicalLoot.Value, Plugin.GuidedEnableRareChestLoot.Value, Plugin.GuidedChestLootRarity.Value, Plugin.GuidedSilverPrefab, Plugin.GuidedGoldPrefab, additions);
             if (additions.Count == 0)
             {
                 return;

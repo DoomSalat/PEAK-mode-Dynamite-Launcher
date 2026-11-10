@@ -1,4 +1,5 @@
 using Peak;
+using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
 
@@ -9,7 +10,16 @@ namespace DynamiteLauncher
     public static class CamoPatch
     {
         private const string BodyName = "Anti-Zooka";
-        private static readonly Color SilverColor = new Color(0.85f, 0.87f, 0.92f, 1f);
+        private const string BaseMap = "_BaseMap";
+        private const string MainTexture = "_MainTex";
+        private const string BaseColor = "_BaseColor";
+        private const string LegacyColor = "_Color";
+        private const string EmissionColor = "_EmissionColor";
+        private const string Metallic = "_Metallic";
+        private const string Smoothness = "_Smoothness";
+        private const float CamoSmoothness = 0.1f;
+        private const int FrameMaterial = 0;
+        private const int BarrelMaterial = 1;
 
         // The barrel (submesh 1) samples only this window of the atlas UV space; the camo is stretched over exactly it.
         private const float WindowU = 0.043f;
@@ -17,21 +27,23 @@ namespace DynamiteLauncher
         private const float WindowWidth = 0.899f;
         private const float WindowHeight = 0.099f;
 
+        private static readonly Color SilverColor = new Color(0.85f, 0.87f, 0.92f, 1f);
+
         private static void ApplyCamo(Material material, Texture texture)
         {
             Vector2 scale = new Vector2(1f / WindowWidth, 1f / WindowHeight);
             Vector2 offset = new Vector2(-WindowU / WindowWidth, -WindowV / WindowHeight);
-            material.SetTexture("_BaseMap", texture);
-            material.SetTexture("_MainTex", texture);
-            material.SetTextureScale("_BaseMap", scale);
-            material.SetTextureOffset("_BaseMap", offset);
-            material.SetTextureScale("_MainTex", scale);
-            material.SetTextureOffset("_MainTex", offset);
-            material.SetColor("_BaseColor", Color.white);
-            material.SetColor("_Color", Color.white);
-            material.SetColor("_EmissionColor", Color.black);
-            material.SetFloat("_Metallic", 0f);
-            material.SetFloat("_Smoothness", 0.1f);
+            material.SetTexture(BaseMap, texture);
+            material.SetTexture(MainTexture, texture);
+            material.SetTextureScale(BaseMap, scale);
+            material.SetTextureOffset(BaseMap, offset);
+            material.SetTextureScale(MainTexture, scale);
+            material.SetTextureOffset(MainTexture, offset);
+            material.SetColor(BaseColor, Color.white);
+            material.SetColor(LegacyColor, Color.white);
+            material.SetColor(EmissionColor, Color.black);
+            material.SetFloat(Metallic, 0f);
+            material.SetFloat(Smoothness, CamoSmoothness);
         }
 
         private static void Postfix(Item ___item)
@@ -84,15 +96,15 @@ namespace DynamiteLauncher
             if (Plugin.CamoEnabled.Value)
             {
                 // The barrel starts from a copy of the frame material: the stock barrel material carries the space shader.
-                materials[1] = new Material(marker.Original[0]);
-                ApplyCamo(materials[1], Variants.IsJump(marker.Variant) ? Plugin.CamoGreen : Plugin.Camo);
+                materials[BarrelMaterial] = new Material(marker.Original[FrameMaterial]);
+                ApplyCamo(materials[BarrelMaterial], Variants.Camo(marker.Variant));
             }
 
             if (Variants.IsSilver(marker.Variant) && Plugin.SilverTrim.Value)
             {
-                materials[0].SetTexture("_MainTex", Plugin.SilverAtlas);
-                materials[0].SetTexture("_BaseMap", Plugin.SilverAtlas);
-                materials[0].SetColor("_BaseColor", SilverColor);
+                materials[FrameMaterial].SetTexture(MainTexture, Plugin.SilverAtlas);
+                materials[FrameMaterial].SetTexture(BaseMap, Plugin.SilverAtlas);
+                materials[FrameMaterial].SetColor(BaseColor, SilverColor);
             }
 
             marker.Applied = materials;
@@ -126,9 +138,7 @@ namespace DynamiteLauncher
     {
         private static void Postfix(Item __instance, ItemInstanceData data, ref string __result)
         {
-            int variant = data != null
-                ? (data.TryGetDataEntry<IntItemData>(Plugin.VariantKey, out IntItemData value) ? value.Value : 0)
-                : Plugin.VariantOf(__instance);
+            int variant = data != null ? Variants.FromData(data) : Plugin.VariantOf(__instance);
             if (variant == 0)
             {
                 return;
@@ -144,12 +154,7 @@ namespace DynamiteLauncher
     {
         public static Texture IconFor(ItemInstanceData data)
         {
-            if (data == null || !data.TryGetDataEntry<IntItemData>(Plugin.VariantKey, out IntItemData value))
-            {
-                return null;
-            }
-
-            return Variants.Icon(value.Value);
+            return Variants.Icon(Variants.FromData(data));
         }
 
         private static void Postfix(InventoryItemUI __instance, ItemSlot slot)
@@ -182,12 +187,12 @@ namespace DynamiteLauncher
 
     public class CamoMarker : MonoBehaviour
     {
-        public static readonly System.Collections.Generic.List<CamoMarker> All = new System.Collections.Generic.List<CamoMarker>();
+        public static readonly List<CamoMarker> All = new List<CamoMarker>();
 
-        public int Variant;
-        public MeshRenderer Renderer;
-        public Material[] Original;
-        public Material[] Applied;
+        public int Variant { get; set; } // Set: filled by CamoPatch.Apply right after AddComponent
+        public MeshRenderer Renderer { get; set; } // Set: filled by CamoPatch.Apply right after AddComponent
+        public Material[] Original { get; set; } // Set: filled by CamoPatch.Apply right after AddComponent
+        public Material[] Applied { get; set; } // Set: replaced on every CamoPatch.Refresh
 
         private void OnEnable()
         {
